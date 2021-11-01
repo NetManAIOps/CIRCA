@@ -1,0 +1,5 @@
+[MESSAGES CONTROL]
+disable=too-few-public-methods
+
+[SIMILARITIES]
+ignore-imports=yes
