@@ -3,7 +3,7 @@ Define the interface for algorithms to access relations
 """
 from abc import ABC
 from typing import Dict
-from typing import Sequence
+from typing import Set
 
 
 class Node:
@@ -46,7 +46,17 @@ class Graph(ABC):
     The abstract interface to access relations
     """
 
-    def parents(self, node: Node, **kwargs) -> Sequence[Node]:
+    def __init__(self):
+        self._node: Set[Node] = set()
+
+    @property
+    def nodes(self) -> Set[Node]:
+        """
+        Get the set of nodes in the graph
+        """
+        return self._node
+
+    def parents(self, node: Node, **kwargs) -> Set[Node]:
         """
         Get the parents of the given node in the graph
         """
@@ -58,12 +68,17 @@ class MemoryGraph(Graph):
     Implement Graph with data in memory
     """
 
-    def __init__(self, parents: Dict[Node, Sequence[Node]]):
+    def __init__(self, parents: Dict[Node, Set[Node]]):
         """
-        parents: parents[Node(entity, metric)] is a sequence of nodes
+        parents: parents[Node(entity, metric)] is a set of nodes
             which are the parents for the given metric of the given entity
         """
+        super().__init__()
+        for child, parent in parents.items():
+            parents[child] = set(parent)
+            self._node.add(child)
+            self._node.update(parent)
         self._parents = parents
 
-    def parents(self, node: Node, **kwargs) -> Sequence[Node]:
-        return self._parents.get(node, [])
+    def parents(self, node: Node, **kwargs) -> Set[Node]:
+        return self._parents.get(node, set())

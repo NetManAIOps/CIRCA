@@ -49,5 +49,6 @@ def test_memory_graph():
         saturation: {traffic},
     }
     graph = MemoryGraph(parents)
+    assert graph.nodes == {latency, traffic, saturation}
     assert not graph.parents(traffic)
-    assert set(graph.parents(latency)) == {traffic, saturation}
+    assert graph.parents(latency) == {traffic, saturation}
