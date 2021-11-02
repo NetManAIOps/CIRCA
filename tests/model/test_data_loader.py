@@ -71,15 +71,9 @@ def test_memory_data_loader():
             "iops",
         },
     }
-    assert (
-        len(
-            data_loader.load(
-                "db",
-                "transaction per second",
-                start=60,
-                end=300,
-                interval=timedelta(seconds=60),
-            )
-        )
-        == 5
-    )
+    params = dict(start=60, end=300, interval=timedelta(seconds=60))
+    assert len(data_loader.load("db", "transaction per second", **params)) == 5
+
+    assert data_loader.load("no-entity", "iops", **params) is None
+    assert data_loader.load("storage", "no-metric", **params) is None
+    assert data_loader.load("storage", "iops", **params) is not None

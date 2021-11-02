@@ -6,6 +6,7 @@ from datetime import timedelta
 from typing import Dict
 from typing import Sequence
 from typing import Tuple
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -38,7 +39,7 @@ class DataLoader(ABC):
         end: float,
         interval: timedelta,
         **kwargs,
-    ) -> Sequence[float]:
+    ) -> Union[None, Sequence[float]]:
         # pylint: disable=too-many-arguments
         """
         Load the time series for the given metric of the given entity
@@ -126,8 +127,10 @@ class MemoryDataLoader(DataLoader):
         end: float,
         interval: timedelta,
         **kwargs,
-    ) -> Sequence[float]:
+    ) -> Union[None, Sequence[float]]:
         # pylint: disable=too-many-arguments
+        if entity not in self._data or metric not in self._data[entity]:
+            return None
         return self.preprocess(
             time_series=self._data[entity][metric],
             start=start,
