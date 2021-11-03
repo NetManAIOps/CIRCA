@@ -8,12 +8,32 @@ from typing import List
 from typing import Sequence
 
 import numpy as np
+from scipy.stats import norm
 from sklearn.preprocessing import StandardScaler
 
 from .base import Ranker
+from .base import Score
 from .base import Scorer
 from ..model.case import CaseData
 from ..model.graph import Node
+
+
+class ZScore(Score):
+    """
+    Score after removing the mean and scaling to unit variance
+    """
+
+    def __init__(self, score: float):
+        score = abs(score)
+        super().__init__(score)
+        self._confidence: float = 1 - 2 * norm.cdf(-score)
+
+    @property
+    def confidence(self) -> float:
+        """
+        Confidence converted from the score
+        """
+        return self._confidence
 
 
 class NSigmaScorer(Scorer):
@@ -37,7 +57,7 @@ class NSigmaScorer(Scorer):
 
     def score_node(
         self, series: Dict[Node, Sequence[float]], node: Node, data: CaseData
-    ) -> float:
+    ) -> ZScore:
         # pylint: disable=unused-argument
         """
         Estimate how suspicious a node is
@@ -47,9 +67,9 @@ class NSigmaScorer(Scorer):
         test_y: np.ndarray = series_y[-self._test_window :]
         scaler = StandardScaler().fit(train_y.reshape(-1, 1))
         z_score = scaler.transform(test_y.reshape(-1, 1))[:, 0]
-        return self._aggregator(abs(z_score))
+        return ZScore(self._aggregator(abs(z_score)))
 
-    def score(self, data: CaseData, current: float) -> Dict[Node, float]:
+    def score(self, data: CaseData, current: float) -> Dict[Node, Score]:
         current = max(current, data.detect_time)
 
         start = data.detect_time - self._lookup_window
@@ -74,9 +94,9 @@ class ScoreRanker(Ranker):
     """
 
     def rank(
-        self, data: CaseData, scores: Dict[Node, float], current: float
+        self, data: CaseData, scores: Dict[Node, Score], current: float
     ) -> List[Node]:
-        return sorted(scores.keys(), key=lambda node: -scores[node])
+        return sorted(scores.keys(), key=lambda node: -scores[node].score)
 
 
 def analyze(
