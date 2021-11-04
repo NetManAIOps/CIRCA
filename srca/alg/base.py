@@ -4,6 +4,7 @@ Abstract interfaces for root cause analysis
 from abc import ABC
 from typing import Dict
 from typing import List
+from typing import Tuple
 
 from ..model.case import CaseData
 from ..model.graph import Node
@@ -29,6 +30,15 @@ class Score:
         """
         return self._score
 
+    def asdict(self) -> Dict[str, float]:
+        """
+        Serialized as a dict
+        """
+        return {"score": self.score}
+
+    def __repr__(self) -> str:
+        return str(self.asdict())
+
 
 class Scorer(ABC):
     """
@@ -51,7 +61,7 @@ class Ranker(ABC):
 
     def rank(
         self, data: CaseData, scores: Dict[Node, Score], current: float
-    ) -> List[Node]:
+    ) -> List[Tuple[Node, Score]]:
         """
         Rank suspicious nodes
 

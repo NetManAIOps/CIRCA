@@ -19,4 +19,4 @@ def test_score_ranker():
         saturation: Score(0.5),
     }
     ranks = ScoreRanker().rank(None, scores, 0)
-    assert ranks == [traffic, latency, saturation]
+    assert [node for node, _ in ranks] == [traffic, latency, saturation]

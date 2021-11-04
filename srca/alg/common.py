@@ -6,6 +6,7 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Sequence
+from typing import Tuple
 
 import numpy as np
 from scipy.stats import norm
@@ -34,6 +35,9 @@ class ZScore(Score):
         Confidence converted from the score
         """
         return self._confidence
+
+    def asdict(self) -> Dict[str, float]:
+        return {**super().asdict(), "confidence": self.confidence}
 
 
 class NSigmaScorer(Scorer):
@@ -69,7 +73,7 @@ class NSigmaScorer(Scorer):
         z_score = scaler.transform(test_y.reshape(-1, 1))[:, 0]
         return ZScore(self._aggregator(abs(z_score)))
 
-    def score(self, data: CaseData, current: float) -> Dict[Node, Score]:
+    def score(self, data: CaseData, current: float) -> Dict[Node, ZScore]:
         current = max(current, data.detect_time)
 
         start = data.detect_time - self._lookup_window
@@ -95,13 +99,13 @@ class ScoreRanker(Ranker):
 
     def rank(
         self, data: CaseData, scores: Dict[Node, Score], current: float
-    ) -> List[Node]:
-        return sorted(scores.keys(), key=lambda node: -scores[node].score)
+    ) -> List[Tuple[Node, Score]]:
+        return sorted(scores.items(), key=lambda item: -item[1].score)
 
 
 def analyze(
     scorer: Scorer, ranker: Ranker, data: CaseData, current: float
-) -> List[Node]:
+) -> List[Tuple[Node, Score]]:
     """
     Conduct root cause analysis
     """
