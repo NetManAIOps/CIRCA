@@ -52,3 +52,6 @@ def test_memory_graph():
     assert graph.nodes == {latency, traffic, saturation}
     assert not graph.parents(traffic)
     assert graph.parents(latency) == {traffic, saturation}
+    assert not graph.children(latency)
+    assert graph.children(traffic) == {latency, saturation}
+    assert graph.topological_sort == [{traffic}, {saturation}, {latency}]

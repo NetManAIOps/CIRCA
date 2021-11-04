@@ -3,6 +3,7 @@ Define the interface for algorithms to access relations
 """
 from abc import ABC
 from typing import Dict
+from typing import List
 from typing import Set
 
 
@@ -47,14 +48,47 @@ class Graph(ABC):
     """
 
     def __init__(self):
-        self._node: Set[Node] = set()
+        self._nodes: Set[Node] = set()
+        self._sorted_nodes: List[Set[Node]] = None
 
     @property
     def nodes(self) -> Set[Node]:
         """
         Get the set of nodes in the graph
         """
-        return self._node
+        return self._nodes
+
+    @property
+    def topological_sort(self) -> List[Set[Node]]:
+        """
+        Sort nodes with parents first
+
+        The graph specifies the parents of each node.
+        """
+        if self._sorted_nodes:
+            return self._sorted_nodes
+
+        degrees = {node: len(self.parents(node)) for node in self.nodes}
+
+        nodes: List[Set[Node]] = []
+        while degrees:
+            minimum = min(degrees.values())
+            node_set = {node for node, degree in degrees.items() if degree == minimum}
+            nodes.append(node_set)
+            for node in node_set:
+                degrees.pop(node)
+                for child in self.children(node):
+                    if child in degrees:
+                        degrees[child] -= 1
+
+        self._sorted_nodes = nodes
+        return nodes
+
+    def children(self, node: Node, **kwargs) -> Set[Node]:
+        """
+        Get the children of the given node in the graph
+        """
+        raise NotImplementedError
 
     def parents(self, node: Node, **kwargs) -> Set[Node]:
         """
@@ -68,17 +102,28 @@ class MemoryGraph(Graph):
     Implement Graph with data in memory
     """
 
-    def __init__(self, parents: Dict[Node, Set[Node]]):
+    def __init__(self, graph: Dict[Node, Set[Node]]):
         """
         parents: parents[Node(entity, metric)] is a set of nodes
             which are the parents for the given metric of the given entity
         """
         super().__init__()
-        for child, parent in parents.items():
-            parents[child] = set(parent)
-            self._node.add(child)
-            self._node.update(parent)
-        self._parents = parents
+        children: Dict[Node, Set[Node]] = {}
+        for child, parents in graph.items():
+            graph[child] = set(parents)
+            self._nodes.add(child)
+            self._nodes.update(parents)
+
+            for parent in parents:
+                if parent not in children:
+                    children[parent] = set()
+                children[parent].add(child)
+
+        self._children = children
+        self._parents = graph
+
+    def children(self, node: Node, **kwargs) -> Set[Node]:
+        return self._children.get(node, set())
 
     def parents(self, node: Node, **kwargs) -> Set[Node]:
         return self._parents.get(node, set())
