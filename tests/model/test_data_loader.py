@@ -3,6 +3,8 @@ Test suites for DataLoader
 """
 from datetime import timedelta
 
+import numpy as np
+
 import pytest
 
 from srca.model.data_loader import DataLoader
@@ -18,6 +20,8 @@ from srca.model.data_loader import MemoryDataLoader
         (60, 280, timedelta(seconds=60)),
         (60, 360, timedelta(seconds=60)),
         (120, 360, timedelta(seconds=60)),
+        (0, 90, timedelta(seconds=60)),
+        (300, 600, timedelta(seconds=60)),
     ],
 )
 def test_preprocess(start: float, end: float, interval: timedelta):
@@ -30,11 +34,18 @@ def test_preprocess(start: float, end: float, interval: timedelta):
         (221, 3),
         (280, 1),
     ]
-    data = DataLoader.preprocess(
-        time_series=time_series, start=start, end=end, interval=interval
-    )
-    assert len(data) == int((end - start) / interval.total_seconds()) + 1
-    assert all(isinstance(item, (float, int)) for item in data)
+    params = dict(start=start, end=end, interval=interval)
+    assert DataLoader.preprocess(time_series=[], **params) is None
+    data = DataLoader.preprocess(time_series=time_series, **params)
+    if start > max(timestamp for timestamp, _ in time_series) or end < min(
+        timestamp for timestamp, _ in time_series
+    ):
+        assert data is None
+    else:
+        assert len(data) == int((end - start) / interval.total_seconds()) + 1
+        assert all(
+            isinstance(item, (float, int)) and not np.isnan(item) for item in data
+        )
 
 
 def test_memory_data_loader():

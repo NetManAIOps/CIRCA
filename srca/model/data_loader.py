@@ -74,11 +74,16 @@ class DataLoader(ABC):
             which is a unix timestamp in seconds
         interval: interval between two data points
         """
-        data = np.array(time_series)
+        if not time_series:
+            return None
+        data: np.ndarray = np.array(time_series)
         # 1. Truncate the time series and make sure that [start, end] is the boundry
+        data = data[(data[:, 0] >= start) & (data[:, 0] <= end), :]
+        if len(data) == 0:
+            return None
         data = np.vstack(
             [
-                data[(data[:, 0] >= start) & (data[:, 0] <= end)],
+                data,
                 np.array([(start, np.nan), (end, np.nan)]),
             ]
         )
