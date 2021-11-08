@@ -2,10 +2,12 @@
 Common utilities
 """
 import datetime
+import logging
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Sequence
+from typing import Set
 from typing import Tuple
 
 import numpy as np
@@ -15,6 +17,7 @@ from sklearn.preprocessing import StandardScaler
 from .base import Ranker
 from .base import Score
 from .base import Scorer
+from ..model.case import Case
 from ..model.case import CaseData
 from ..model.graph import Node
 
@@ -111,3 +114,63 @@ def analyze(
     """
     scores = scorer.score(data=data, current=current)
     return ranker.rank(data=data, scores=scores, current=current)
+
+
+class Evaluation:
+    """
+    Evalution results
+    """
+
+    def __init__(self, recommendation_num: int = 5):
+        self._recommendation_num = recommendation_num
+        self._accuracy = {k: 0.0 for k in range(1, recommendation_num + 1)}
+        self._num = 0
+
+    def __call__(self, ranks: Sequence[Node], answers: Set[Node]):
+        self._num += 1
+        answer_num = len(answers)
+        for k in range(1, self._recommendation_num + 1):
+            self._accuracy[k] += len(answers.intersection(ranks[:k])) / min(
+                k, answer_num
+            )
+
+    def accuracy(self, k: int) -> float:
+        """
+        AC@k is the average of accuracy@k among cases
+
+        For each case, accuracy@k = |ranks[:k] \\cap answers| / min(k, |answers|)
+        """
+        if k not in self._accuracy or not self._num:
+            return None
+        return self._accuracy[k] / self._num
+
+    def average(self, k: int) -> float:
+        """
+        Avg@k = \\sum_{j=1}^{k} AC@j / k
+        """
+        if k not in self._accuracy or not self._num:
+            return None
+        return sum(self.accuracy(i) for i in range(1, k + 1)) / k
+
+
+def evaluate(
+    scorer: Scorer, ranker: Ranker, cases: Sequence[Case], delay: int = 300
+) -> Evaluation:
+    """
+    Evaluate the composition of Scorer and Ranker
+
+    delay: the expected interval in seconds to conduct root cause analysis
+        after the case is detected
+    """
+    logger = logging.getLogger(f"{evaluate.__module__}.{evaluate.__name__}")
+    report = Evaluation()
+    for index, case in enumerate(cases):
+        logger.debug("Analyze case %d", index)
+        ranks = analyze(
+            scorer=scorer,
+            ranker=ranker,
+            data=case.data,
+            current=case.data.detect_time + delay,
+        )
+        report(ranks=[node for node, _ in ranks], answers=case.answer)
+    return report
