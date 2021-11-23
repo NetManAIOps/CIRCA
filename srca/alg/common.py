@@ -2,7 +2,9 @@
 Common utilities
 """
 import datetime
+import json
 import logging
+import os
 from typing import Callable
 from typing import Dict
 from typing import List
@@ -124,14 +126,39 @@ class Evaluation:
     def __init__(self, recommendation_num: int = 5):
         self._recommendation_num = recommendation_num
         self._accuracy = {k: 0.0 for k in range(1, recommendation_num + 1)}
-        self._num = 0
+        self._ranks: List[List[Node]] = []
 
     def __call__(self, ranks: Sequence[Node], answers: Set[Node]):
-        self._num += 1
+        self._ranks.append(ranks[: self._recommendation_num])
         answer_num = len(answers)
         for k in range(1, self._recommendation_num + 1):
             self._accuracy[k] += len(answers.intersection(ranks[:k])) / min(
                 k, answer_num
+            )
+
+    def dump(self, filename: str) -> None:
+        """
+        Dump ranks into the given file
+        """
+        with open(filename, "w", encoding="UTF-8") as obj:
+            json.dump(
+                [[node.asdict() for node in ranks] for ranks in self._ranks],
+                obj,
+                ensure_ascii=False,
+                indent=2,
+            )
+
+    def load(self, filename: str, answers: Sequence[Set[Node]]) -> None:
+        """
+        Load ranks from the given file
+        """
+        self._ranks = []
+        with open(filename, "r", encoding="UTF-8") as obj:
+            report: List[List[dict]] = json.load(obj)
+        for ranks, answer in zip(report, answers):
+            self(
+                [Node(entity=node["entity"], metric=node["metric"]) for node in ranks],
+                answer,
             )
 
     def accuracy(self, k: int) -> float:
@@ -140,21 +167,25 @@ class Evaluation:
 
         For each case, accuracy@k = |ranks[:k] \\cap answers| / min(k, |answers|)
         """
-        if k not in self._accuracy or not self._num:
+        if k not in self._accuracy or not self._ranks:
             return None
-        return self._accuracy[k] / self._num
+        return self._accuracy[k] / len(self._ranks)
 
     def average(self, k: int) -> float:
         """
         Avg@k = \\sum_{j=1}^{k} AC@j / k
         """
-        if k not in self._accuracy or not self._num:
+        if k not in self._accuracy or not self._ranks:
             return None
         return sum(self.accuracy(i) for i in range(1, k + 1)) / k
 
 
 def evaluate(
-    scorer: Scorer, ranker: Ranker, cases: Sequence[Case], delay: int = 300
+    scorer: Scorer,
+    ranker: Ranker,
+    cases: Sequence[Case],
+    delay: int = 300,
+    output_filename: str = "report.json",
 ) -> Evaluation:
     """
     Evaluate the composition of Scorer and Ranker
@@ -164,6 +195,10 @@ def evaluate(
     """
     logger = logging.getLogger(f"{evaluate.__module__}.{evaluate.__name__}")
     report = Evaluation()
+    if os.path.exists(output_filename):
+        report.load(output_filename, [case.answer for case in cases])
+        return report
+
     for index, case in enumerate(cases):
         logger.debug("Analyze case %d", index)
         ranks = analyze(
@@ -173,4 +208,5 @@ def evaluate(
             current=case.data.detect_time + delay,
         )
         report(ranks=[node for node, _ in ranks], answers=case.answer)
+    report.dump(output_filename)
     return report

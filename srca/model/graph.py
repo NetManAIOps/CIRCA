@@ -30,6 +30,12 @@ class Node:
         """
         return self._metric
 
+    def asdict(self) -> Dict[str, float]:
+        """
+        Serialized as a dict
+        """
+        return {"entity": self._entity, "metric": self._metric}
+
     def __eq__(self, obj: object) -> bool:
         if isinstance(obj, Node):
             return self.entity == obj.entity and self.metric == obj.metric

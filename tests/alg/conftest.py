@@ -2,6 +2,7 @@
 """
 Fixtures for test cases
 """
+import tempfile
 from typing import Dict
 from typing import Sequence
 from typing import Tuple
@@ -12,6 +13,15 @@ from srca.model.case import CaseData
 from srca.model.data_loader import MemoryDataLoader
 from srca.model.graph import MemoryGraph
 from srca.model.graph import Node
+
+
+@pytest.fixture
+def tempdir() -> str:
+    """
+    Create temporary directory
+    """
+    with tempfile.TemporaryDirectory() as folder:
+        yield folder
 
 
 @pytest.fixture
