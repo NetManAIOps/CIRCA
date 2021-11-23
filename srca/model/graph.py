@@ -6,6 +6,8 @@ from typing import Dict
 from typing import List
 from typing import Set
 
+import networkx as nx
+
 
 class Node:
     """
@@ -71,24 +73,7 @@ class Graph(ABC):
 
         The graph specifies the parents of each node.
         """
-        if self._sorted_nodes:
-            return self._sorted_nodes
-
-        degrees = {node: len(self.parents(node)) for node in self.nodes}
-
-        nodes: List[Set[Node]] = []
-        while degrees:
-            minimum = min(degrees.values())
-            node_set = {node for node, degree in degrees.items() if degree == minimum}
-            nodes.append(node_set)
-            for node in node_set:
-                degrees.pop(node)
-                for child in self.children(node):
-                    if child in degrees:
-                        degrees[child] -= 1
-
-        self._sorted_nodes = nodes
-        return nodes
+        raise NotImplementedError
 
     def children(self, node: Node, **kwargs) -> Set[Node]:
         """
@@ -108,28 +93,28 @@ class MemoryGraph(Graph):
     Implement Graph with data in memory
     """
 
-    def __init__(self, graph: Dict[Node, Set[Node]]):
+    def __init__(self, graph: nx.DiGraph):
         """
-        parents: parents[Node(entity, metric)] is a set of nodes
-            which are the parents for the given metric of the given entity
+        graph: The whole graph
         """
         super().__init__()
-        children: Dict[Node, Set[Node]] = {}
-        for child, parents in graph.items():
-            graph[child] = set(parents)
-            self._nodes.add(child)
-            self._nodes.update(parents)
+        self._graph = graph
+        self._nodes.update(self._graph.nodes)
 
-            for parent in parents:
-                if parent not in children:
-                    children[parent] = set()
-                children[parent].add(child)
-
-        self._children = children
-        self._parents = graph
+    @property
+    def topological_sort(self) -> List[Set[Node]]:
+        if self._sorted_nodes is None:
+            self._sorted_nodes = [
+                set(nodes) for nodes in nx.topological_generations(self._graph)
+            ]
+        return self._sorted_nodes
 
     def children(self, node: Node, **kwargs) -> Set[Node]:
-        return self._children.get(node, set())
+        if not self._graph.has_node(node):
+            return set()
+        return set(self._graph.successors(node))
 
     def parents(self, node: Node, **kwargs) -> Set[Node]:
-        return self._parents.get(node, set())
+        if not self._graph.has_node(node):
+            return set()
+        return set(self._graph.predecessors(node))

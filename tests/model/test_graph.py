@@ -1,6 +1,8 @@
 """
 Test suites for Graph
 """
+import networkx as nx
+
 from srca.model.graph import MemoryGraph
 from srca.model.graph import Node
 
@@ -44,11 +46,14 @@ def test_memory_graph():
     latency = Node("DB", "Latency")
     traffic = Node("DB", "Traffic")
     saturation = Node("DB", "Saturation")
-    parents = {
-        latency: [traffic, saturation],
-        saturation: {traffic},
-    }
-    graph = MemoryGraph(parents)
+    graph = MemoryGraph(
+        nx.DiGraph(
+            {
+                traffic: [latency, saturation],
+                saturation: [latency],
+            }
+        )
+    )
     assert graph.nodes == {latency, traffic, saturation}
     assert not graph.parents(traffic)
     assert graph.parents(latency) == {traffic, saturation}

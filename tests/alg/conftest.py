@@ -7,6 +7,8 @@ from typing import Dict
 from typing import Sequence
 from typing import Tuple
 
+import networkx as nx
+
 import pytest
 
 from srca.model.case import CaseData
@@ -60,10 +62,12 @@ def graph() -> MemoryGraph:
     traffic = Node("DB", "Traffic")
     saturation = Node("DB", "Saturation")
     return MemoryGraph(
-        {
-            latency: {traffic, saturation},
-            saturation: {traffic},
-        }
+        nx.DiGraph(
+            {
+                traffic: [latency, saturation],
+                saturation: [latency],
+            }
+        )
     )
 
 
