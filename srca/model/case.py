@@ -4,7 +4,6 @@ Define the data structure for algorithms as context
 from typing import Set
 
 from .data_loader import DataLoader
-from .graph import Graph
 from .graph import Node
 
 
@@ -13,9 +12,9 @@ class CaseData:
     Case data that algorithms can access
     """
 
-    def __init__(self, data_loader: DataLoader, graph: Graph, detect_time: float):
+    def __init__(self, data_loader: DataLoader, sla: Set[Node], detect_time: float):
         self._data_loader = data_loader
-        self._graph = graph
+        self._sla = sla
         self._detect_time = detect_time
 
     @property
@@ -26,11 +25,11 @@ class CaseData:
         return self._data_loader
 
     @property
-    def graph(self) -> Graph:
+    def sla(self) -> Set[Node]:
         """
-        Interface to access relations
+        The service level agreement (SLA) that is violated
         """
-        return self._graph
+        return self._sla
 
     @property
     def detect_time(self) -> float:

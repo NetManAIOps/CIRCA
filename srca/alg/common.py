@@ -1,100 +1,112 @@
 """
 Common utilities
 """
-import datetime
 import json
 import logging
 import os
-from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Sequence
 from typing import Set
 from typing import Tuple
 
+import networkx as nx
 import numpy as np
 from scipy.stats import norm
 from sklearn.preprocessing import StandardScaler
 
+from .base import GraphFactory
 from .base import Ranker
 from .base import Score
 from .base import Scorer
 from ..model.case import Case
 from ..model.case import CaseData
+from ..model.graph import Graph
+from ..model.graph import MemoryGraph
 from ..model.graph import Node
 
 
-class ZScore(Score):
+def zscore(train_y: np.ndarray, test_y: np.ndarray) -> np.ndarray:
     """
-    Score after removing the mean and scaling to unit variance
+    Estimate to what extend each value in test_y violates
+    the normal distribution defined by train_y
+    """
+    scaler = StandardScaler().fit(train_y.reshape(-1, 1))
+    return scaler.transform(test_y.reshape(-1, 1))[:, 0]
+
+
+def zscore_conf(score: float) -> float:
+    """
+    Convert z-score into confidence about the hypothesis the score is abnormal
+    """
+    return 1 - 2 * norm.cdf(-abs(score))
+
+
+class EmptyGraphFactory(GraphFactory):
+    """
+    Create a graph with nodes only
     """
 
-    def __init__(self, score: float):
-        score = abs(score)
-        super().__init__(score)
-        self._confidence: float = 1 - 2 * norm.cdf(-score)
+    def create(self, data: CaseData, current: float) -> Graph:
+        graph = nx.DiGraph()
+        graph.add_nodes_from(data.data_loader.nodes)
+        return MemoryGraph(graph)
 
-    @property
-    def confidence(self) -> float:
+
+class StaticGraphFactory(GraphFactory):
+    """
+    Create the same graph
+    """
+
+    def __init__(self, graph: Graph):
+        self._graph = graph
+
+    def create(self, data: CaseData, current: float) -> Graph:
+        return self._graph
+
+
+class DecomposableScorer(Scorer):
+    """
+    Score each node separately
+    """
+
+    def score_node(
+        self,
+        graph: Graph,
+        series: Dict[Node, Sequence[float]],
+        node: Node,
+        data: CaseData,
+    ) -> Score:
         """
-        Confidence converted from the score
+        Estimate how suspicious a node is
         """
-        return self._confidence
+        raise NotImplementedError
 
-    def asdict(self) -> Dict[str, float]:
-        return {**super().asdict(), "confidence": self.confidence}
+    def score(self, graph: Graph, data: CaseData, current: float) -> Dict[Node, Score]:
+        series = self.load_data(graph, data, current)
+        return {node: self.score_node(graph, series, node, data) for node in series}
 
 
-class NSigmaScorer(Scorer):
+class NSigmaScorer(DecomposableScorer):
     """
     Score nodes by n-sigma
     """
 
-    def __init__(
-        self,
-        interval: datetime.timedelta = datetime.timedelta(minutes=1),
-        lookup_window: int = 120,
-        detect_window: int = 10,
-        aggregator: Callable[[Sequence[float]], float] = max,
-    ):
-        self._interval = interval
-
-        self._train_window = lookup_window - detect_window + 1
-        self._test_window = detect_window
-        self._lookup_window = lookup_window * interval.total_seconds()
-        self._aggregator = aggregator
-
     def score_node(
-        self, series: Dict[Node, Sequence[float]], node: Node, data: CaseData
-    ) -> ZScore:
-        # pylint: disable=unused-argument
-        """
-        Estimate how suspicious a node is
-        """
+        self,
+        graph: Graph,
+        series: Dict[Node, Sequence[float]],
+        node: Node,
+        data: CaseData,
+    ) -> Score:
         series_y = np.array(series[node])
         train_y: np.ndarray = series_y[: self._train_window]
         test_y: np.ndarray = series_y[-self._test_window :]
-        scaler = StandardScaler().fit(train_y.reshape(-1, 1))
-        z_score = scaler.transform(test_y.reshape(-1, 1))[:, 0]
-        return ZScore(self._aggregator(abs(z_score)))
-
-    def score(self, data: CaseData, current: float) -> Dict[Node, ZScore]:
-        current = max(current, data.detect_time)
-
-        start = data.detect_time - self._lookup_window
-        series: Dict[Node, Sequence[float]] = {}
-        for node in data.graph.nodes:
-            node_data = data.data_loader.load(
-                entity=node.entity,
-                metric=node.metric,
-                start=start,
-                end=current,
-                interval=self._interval,
-            )
-            if node_data:
-                series[node] = node_data
-
-        return {node: self.score_node(series, node, data) for node in series}
+        z_scores = zscore(train_y, test_y)
+        z_score = self._aggregator(abs(z_scores))
+        score = Score(z_score)
+        score["z-score"] = z_score
+        return score
 
 
 class ScoreRanker(Ranker):
@@ -103,19 +115,49 @@ class ScoreRanker(Ranker):
     """
 
     def rank(
-        self, data: CaseData, scores: Dict[Node, Score], current: float
+        self, graph: Graph, data: CaseData, scores: Dict[Node, Score], current: float
     ) -> List[Tuple[Node, Score]]:
-        return sorted(scores.items(), key=lambda item: -item[1].score)
+        return sorted(scores.items(), key=lambda item: item[1].score, reverse=True)
 
 
-def analyze(
-    scorer: Scorer, ranker: Ranker, data: CaseData, current: float
-) -> List[Tuple[Node, Score]]:
+class Model:
     """
-    Conduct root cause analysis
+    A combination of the algorithms
     """
-    scores = scorer.score(data=data, current=current)
-    return ranker.rank(data=data, scores=scores, current=current)
+
+    def __init__(
+        self,
+        graph_factory: GraphFactory,
+        scorer: Scorer,
+        ranker: Ranker,
+        names: Tuple[str, str, str] = None,
+    ):
+        self._graph_factory = graph_factory
+        self._scorer = scorer
+        self._ranker = ranker
+        if names is None:
+            names = [None] * 3
+        self._name_graph, self._name_scorer, self._name_ranker = [
+            obj.__class__.__name__ if name is None else name
+            for name, obj in zip(names, (graph_factory, scorer, ranker))
+        ]
+        self._name = "-".join((self._name_graph, self._name_scorer, self._name_ranker))
+
+    @property
+    def name(self) -> str:
+        """
+        Model name
+        """
+        return self._name
+
+    def analyze(self, data: CaseData, current: float) -> List[Tuple[Node, Score]]:
+        """
+        Conduct root cause analysis
+        """
+        # TODO: Cache the following 3 steps
+        graph = self._graph_factory.create(data=data, current=current)
+        scores = self._scorer.score(graph=graph, data=data, current=current)
+        return self._ranker.rank(graph=graph, data=data, scores=scores, current=current)
 
 
 class Evaluation:
@@ -181,11 +223,10 @@ class Evaluation:
 
 
 def evaluate(
-    scorer: Scorer,
-    ranker: Ranker,
+    model: Model,
     cases: Sequence[Case],
     delay: int = 300,
-    output_filename: str = "report.json",
+    output_dir: str = None,
 ) -> Evaluation:
     """
     Evaluate the composition of Scorer and Ranker
@@ -195,18 +236,16 @@ def evaluate(
     """
     logger = logging.getLogger(f"{evaluate.__module__}.{evaluate.__name__}")
     report = Evaluation()
-    if os.path.exists(output_filename):
-        report.load(output_filename, [case.answer for case in cases])
-        return report
+    if output_dir is not None:
+        output_filename = os.path.join(output_dir, f"{model.name}.json")
+        if os.path.exists(output_filename):
+            report.load(output_filename, [case.answer for case in cases])
+            return report
 
     for index, case in enumerate(cases):
         logger.debug("Analyze case %d", index)
-        ranks = analyze(
-            scorer=scorer,
-            ranker=ranker,
-            data=case.data,
-            current=case.data.detect_time + delay,
-        )
+        ranks = model.analyze(data=case.data, current=case.data.detect_time + delay)
         report(ranks=[node for node, _ in ranks], answers=case.answer)
-    report.dump(output_filename)
+    if output_dir is not None:
+        report.dump(output_filename)
     return report

@@ -3,11 +3,12 @@ Smoke tests for algorithms
 """
 import pytest
 
+from srca.alg.base import GraphFactory
 from srca.alg.base import Ranker
 from srca.alg.base import Scorer
+from srca.alg.common import Model
 from srca.alg.common import NSigmaScorer
 from srca.alg.common import ScoreRanker
-from srca.alg.common import analyze
 from srca.model.case import CaseData
 
 
@@ -17,10 +18,11 @@ from srca.model.case import CaseData
         (NSigmaScorer(lookup_window=4, detect_window=2), ScoreRanker()),
     ],
 )
-def test_smoke(scorer: Scorer, ranker: Ranker, case_data: CaseData):
+def test_smoke(
+    graph_factory: GraphFactory, scorer: Scorer, ranker: Ranker, case_data: CaseData
+):
     """
     Smoke tests
     """
-    assert analyze(
-        scorer=scorer, ranker=ranker, data=case_data, current=case_data.detect_time + 60
-    )
+    model = Model(graph_factory=graph_factory, scorer=scorer, ranker=ranker)
+    assert model.analyze(data=case_data, current=case_data.detect_time + 60)

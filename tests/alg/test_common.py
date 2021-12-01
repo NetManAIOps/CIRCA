@@ -1,10 +1,10 @@
 """
 Test suites for common utilities
 """
-import os
-
+from srca.alg.base import GraphFactory
 from srca.alg.base import Score
 from srca.alg.common import Evaluation
+from srca.alg.common import Model
 from srca.alg.common import NSigmaScorer
 from srca.alg.common import ScoreRanker
 from srca.alg.common import evaluate
@@ -42,25 +42,29 @@ def test_score_ranker():
         traffic: Score(0.9),
         saturation: Score(0.5),
     }
-    ranks = ScoreRanker().rank(None, scores, 0)
+    ranks = ScoreRanker().rank(None, None, scores, 0)
     assert [node for node, _ in ranks] == [traffic, latency, saturation]
 
 
-def test_evaluate(case_data: CaseData, tempdir: str):
+def test_evaluate(graph_factory: GraphFactory, case_data: CaseData, tempdir: str):
     """
     evaluate shall reuse cached results
     """
-    output_filename = os.path.join(tempdir, "report.json")
     cases = [
         Case(data=case_data, answer={Node("DB", "Latency")}),
         Case(data=case_data, answer={Node("DB", "Saturation")}),
     ]
-    scorer = NSigmaScorer()
-    ranker = ScoreRanker()
-    report = evaluate(scorer, ranker, cases, delay=60, output_filename=output_filename)
-    # scorer and ranker shall not be called, using cache instead
+    names = ("graph", "scorer", "ranker")
+    model = Model(
+        graph_factory=graph_factory,
+        scorer=NSigmaScorer(),
+        ranker=ScoreRanker(),
+        names=names,
+    )
+    report = evaluate(model, cases, delay=60, output_dir=tempdir)
+    # Model.analyze shall not be called, using cache instead
     cached_report = evaluate(
-        None, None, cases, delay=60, output_filename=output_filename
+        Model(None, None, None, names), cases, delay=60, output_dir=tempdir
     )
     for k in range(1, 4):
         assert report.accuracy(k) == cached_report.accuracy(k)

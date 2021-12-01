@@ -11,6 +11,8 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
+from .graph import Node
+
 
 class DataLoader(ABC):
     """
@@ -30,6 +32,17 @@ class DataLoader(ABC):
         Fetch available metrics as a mapping from entity names to metric names
         """
         raise NotImplementedError
+
+    @property
+    def nodes(self) -> Sequence[Node]:
+        """
+        Pairs of entity and metric
+        """
+        return [
+            Node(entity=entity, metric=metric)
+            for entity, metrics in self.metrics.items()
+            for metric in metrics
+        ]
 
     def load(
         self,

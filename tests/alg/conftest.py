@@ -11,8 +11,12 @@ import networkx as nx
 
 import pytest
 
+from srca.alg.base import GraphFactory
+from srca.alg.common import StaticGraphFactory
 from srca.model.case import CaseData
+from srca.model.data_loader import DataLoader
 from srca.model.data_loader import MemoryDataLoader
+from srca.model.graph import Graph
 from srca.model.graph import MemoryGraph
 from srca.model.graph import Node
 
@@ -27,19 +31,19 @@ def tempdir() -> str:
 
 
 @pytest.fixture
-def case_data(data_loader: MemoryDataLoader, graph: MemoryGraph) -> CaseData:
+def case_data(data_loader: DataLoader) -> CaseData:
     """
     Create a CaseData for test
     """
     return CaseData(
         data_loader=data_loader,
-        graph=graph,
+        sla={Node("DB", "Latency")},
         detect_time=240,
     )
 
 
 @pytest.fixture
-def data_loader(mock_data: Dict[Node, Sequence[float]]) -> MemoryDataLoader:
+def data_loader(mock_data: Dict[Node, Sequence[float]]) -> DataLoader:
     """
     Create a MemoryDataLoader for test
     """
@@ -54,9 +58,17 @@ def data_loader(mock_data: Dict[Node, Sequence[float]]) -> MemoryDataLoader:
 
 
 @pytest.fixture
-def graph() -> MemoryGraph:
+def graph_factory(graph: Graph) -> GraphFactory:
     """
-    Create a MemoryGraph for test
+    Create a GraphFactory for test
+    """
+    return StaticGraphFactory(graph)
+
+
+@pytest.fixture
+def graph() -> Graph:
+    """
+    Create a Graph for test
     """
     latency = Node("DB", "Latency")
     traffic = Node("DB", "Traffic")
