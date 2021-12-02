@@ -9,8 +9,12 @@ from srca.alg.base import Scorer
 from srca.alg.common import Model
 from srca.alg.common import NSigmaScorer
 from srca.alg.common import ScoreRanker
+from srca.alg.correlation import CorrelationScorer
+from srca.alg.correlation import PartialCorrelationScorer
 from srca.alg.dfs import DFSRanker
 from srca.alg.dfs import MicroHECLRanker
+from srca.alg.random_walk import RandomWalkScorer
+from srca.alg.random_walk import SecondOrderRandomWalkScorer
 from srca.model.case import CaseData
 
 
@@ -20,6 +24,8 @@ from srca.model.case import CaseData
         (NSigmaScorer(), ScoreRanker()),
         (NSigmaScorer(), MicroHECLRanker(anomaly_threshold=3, stop_threshold=0.7)),
         (NSigmaScorer(), DFSRanker(anomaly_threshold=3)),
+        (RandomWalkScorer(scorer=PartialCorrelationScorer()), ScoreRanker()),
+        (SecondOrderRandomWalkScorer(scorer=CorrelationScorer()), ScoreRanker()),
     ],
 )
 def test_smoke(

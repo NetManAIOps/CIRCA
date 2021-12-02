@@ -80,8 +80,11 @@ class Scorer(ABC):
     The abstract interface to score nodes
     """
 
-    def __init__(self, aggregator: Callable[[Sequence[float]], float] = max):
+    def __init__(
+        self, aggregator: Callable[[Sequence[float]], float] = max, seed: int = 519
+    ):
         self._aggregator = aggregator
+        self._seed = seed
 
     def score(self, graph: Graph, data: CaseData, current: float) -> Dict[Node, Score]:
         """
