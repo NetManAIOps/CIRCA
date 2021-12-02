@@ -83,7 +83,7 @@ class DecomposableScorer(Scorer):
         raise NotImplementedError
 
     def score(self, graph: Graph, data: CaseData, current: float) -> Dict[Node, Score]:
-        series = self.load_data(graph, data, current)
+        series = data.load_data(graph, current)
         return {node: self.score_node(graph, series, node, data) for node in series}
 
 
@@ -100,8 +100,8 @@ class NSigmaScorer(DecomposableScorer):
         data: CaseData,
     ) -> Score:
         series_y = np.array(series[node])
-        train_y: np.ndarray = series_y[: self._train_window]
-        test_y: np.ndarray = series_y[-self._test_window :]
+        train_y: np.ndarray = series_y[: data.train_window]
+        test_y: np.ndarray = series_y[-data.test_window :]
         z_scores = zscore(train_y, test_y)
         z_score = self._aggregator(abs(z_scores))
         score = Score(z_score)

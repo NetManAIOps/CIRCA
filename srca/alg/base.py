@@ -2,7 +2,6 @@
 Abstract interfaces for root cause analysis
 """
 from abc import ABC
-import datetime
 from typing import Callable
 from typing import Dict
 from typing import List
@@ -81,41 +80,8 @@ class Scorer(ABC):
     The abstract interface to score nodes
     """
 
-    def __init__(
-        self,
-        interval: datetime.timedelta = datetime.timedelta(minutes=1),
-        lookup_window: int = 120,
-        detect_window: int = 10,
-        aggregator: Callable[[Sequence[float]], float] = max,
-    ):
-        self._interval = interval
-
-        self._train_window = lookup_window - detect_window + 1
-        self._test_window = detect_window
-        self._lookup_window = lookup_window * interval.total_seconds()
+    def __init__(self, aggregator: Callable[[Sequence[float]], float] = max):
         self._aggregator = aggregator
-
-    def load_data(
-        self, graph: Graph, data: CaseData, current: float
-    ) -> Dict[Node, Sequence[float]]:
-        """
-        Parepare data
-        """
-        current = max(current, data.detect_time)
-
-        start = data.detect_time - self._lookup_window
-        series: Dict[Node, Sequence[float]] = {}
-        for node in graph.nodes:
-            node_data = data.data_loader.load(
-                entity=node.entity,
-                metric=node.metric,
-                start=start,
-                end=current,
-                interval=self._interval,
-            )
-            if node_data:
-                series[node] = node_data
-        return series
 
     def score(self, graph: Graph, data: CaseData, current: float) -> Dict[Node, Score]:
         """

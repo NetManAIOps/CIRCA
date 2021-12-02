@@ -15,7 +15,7 @@ from srca.model.case import CaseData
 @pytest.mark.parametrize(
     ("scorer", "ranker"),
     [
-        (NSigmaScorer(lookup_window=4, detect_window=2), ScoreRanker()),
+        (NSigmaScorer(), ScoreRanker()),
     ],
 )
 def test_smoke(
