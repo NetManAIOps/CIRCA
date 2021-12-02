@@ -40,8 +40,8 @@ class DFSRanker(ScoreRanker):
             for node, score in scores.items()
             if score.score >= self._anomaly_threshold
         }
-        layer = {*data.sla}
-        visited = {*data.sla}
+        layer = {data.sla}
+        visited = {data.sla}
         roots: Set[Node] = set()
         while layer:
             next_layer: Set[Node] = set()

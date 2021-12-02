@@ -19,7 +19,7 @@ class CaseData:
     def __init__(
         self,
         data_loader: DataLoader,
-        sla: Set[Node],
+        sla: Node,
         detect_time: float,
         interval: datetime.timedelta = datetime.timedelta(minutes=1),
         lookup_window: int = 120,
@@ -44,7 +44,7 @@ class CaseData:
         return self._data_loader
 
     @property
-    def sla(self) -> Set[Node]:
+    def sla(self) -> Node:
         """
         The service level agreement (SLA) that is violated
         """

@@ -26,9 +26,7 @@ def test_pearson(size: int = 10):
     rng = np.random.default_rng()
     series_a = rng.standard_normal(size)
     series_b = rng.standard_normal(size)
-    assert pearson(series_a, series_b) == pytest.approx(
-        pearsonr(series_a, series_b)[0]
-    )
+    assert pearson(series_a, series_b) == pytest.approx(pearsonr(series_a, series_b)[0])
     assert pearson(series_a, np.zeros(size)) == 0.0
 
 
