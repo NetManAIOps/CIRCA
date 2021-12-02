@@ -9,6 +9,8 @@ from srca.alg.base import Scorer
 from srca.alg.common import Model
 from srca.alg.common import NSigmaScorer
 from srca.alg.common import ScoreRanker
+from srca.alg.dfs import DFSRanker
+from srca.alg.dfs import MicroHECLRanker
 from srca.model.case import CaseData
 
 
@@ -16,6 +18,8 @@ from srca.model.case import CaseData
     ("scorer", "ranker"),
     [
         (NSigmaScorer(), ScoreRanker()),
+        (NSigmaScorer(), MicroHECLRanker(anomaly_threshold=3, stop_threshold=0.7)),
+        (NSigmaScorer(), DFSRanker(anomaly_threshold=3)),
     ],
 )
 def test_smoke(

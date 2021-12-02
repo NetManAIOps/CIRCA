@@ -1,6 +1,11 @@
 """
 Test suites for common utilities
 """
+import numpy as np
+from scipy.stats import pearsonr
+
+import pytest
+
 from srca.alg.base import GraphFactory
 from srca.alg.base import Score
 from srca.alg.common import Evaluation
@@ -8,9 +13,23 @@ from srca.alg.common import Model
 from srca.alg.common import NSigmaScorer
 from srca.alg.common import ScoreRanker
 from srca.alg.common import evaluate
+from srca.alg.common import pearson
 from srca.model.case import Case
 from srca.model.case import CaseData
 from srca.model.graph import Node
+
+
+def test_pearson(size: int = 10):
+    """
+    pearson shall calculate the same Pearson coefficient as scipy
+    """
+    rng = np.random.default_rng()
+    series_a = rng.standard_normal(size)
+    series_b = rng.standard_normal(size)
+    assert pearson(series_a, series_b) == pytest.approx(
+        pearsonr(series_a, series_b)[0]
+    )
+    assert pearson(series_a, np.zeros(size)) == 0.0
 
 
 def test_evaluation():

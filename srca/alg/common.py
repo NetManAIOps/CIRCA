@@ -26,6 +26,18 @@ from ..model.graph import MemoryGraph
 from ..model.graph import Node
 
 
+def pearson(series_a: np.ndarray, series_b: np.ndarray) -> float:
+    """
+    Pearson coefficient, checking constant
+    """
+    std_a: float = series_a.std()
+    std_b: float = series_b.std()
+    if std_a == 0 or std_b == 0:
+        return 0
+    prod: np.ndarray = (series_a - series_a.mean()) * (series_b - series_b.mean())
+    return prod.sum() / (std_a * std_b * len(series_a))
+
+
 def zscore(train_y: np.ndarray, test_y: np.ndarray) -> np.ndarray:
     """
     Estimate to what extend each value in test_y violates
