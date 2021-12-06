@@ -101,7 +101,12 @@ class DecomposableScorer(Scorer):
         scores: Dict[Node, Score] = None,
     ) -> Dict[Node, Score]:
         series = data.load_data(graph, current)
-        return {node: self.score_node(graph, series, node, data) for node in series}
+        if scores is None:
+            return {node: self.score_node(graph, series, node, data) for node in series}
+        return {
+            node: score.update(self.score_node(graph, series, node, data))
+            for node, score in scores.items()
+        }
 
 
 class NSigmaScorer(DecomposableScorer):
@@ -289,7 +294,7 @@ def evaluate(
     output_dir: str = None,
 ) -> Evaluation:
     """
-    Evaluate the composition of Scorer and Ranker
+    Evaluate the composition of Scorers
 
     delay: the expected interval in seconds to conduct root cause analysis
         after the case is detected

@@ -1,5 +1,5 @@
 """
-Test suites for DFSRanker
+Test suites for DFSScorer
 """
 import networkx as nx
 

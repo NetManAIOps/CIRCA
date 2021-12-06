@@ -68,6 +68,21 @@ class Score:
         """
         self._key = value
 
+    @property
+    def info(self) -> dict:
+        """
+        Extra information
+        """
+        return self._info
+
+    def update(self, score: "Score") -> "Score":
+        """
+        Update score and info
+        """
+        self._info.update(score.info)
+        self.score = score.score
+        return self
+
     def asdict(self) -> Dict[str, float]:
         """
         Serialized as a dict
