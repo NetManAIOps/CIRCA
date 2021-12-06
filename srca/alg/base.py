@@ -5,9 +5,11 @@ from abc import ABC
 from typing import Callable
 from typing import Dict
 from typing import Sequence
+from typing import Union
 
 from ..model.case import CaseData
 from ..model.graph import Graph
+from ..model.graph import MemoryGraph
 from ..model.graph import Node
 
 
@@ -16,10 +18,10 @@ class Score:
     The more suspicious a node, the higher the score.
     """
 
-    def __init__(self, score: float):
+    def __init__(self, score: float, info: dict = None):
         self._score = score
         self._key: tuple = None
-        self._info = {}
+        self._info = {} if info is None else info
 
     def __eq__(self, obj) -> bool:
         if isinstance(obj, Score):
@@ -80,6 +82,13 @@ class GraphFactory(ABC):
     """
     The abstract interface to create Graph
     """
+
+    @staticmethod
+    def load(filename: str) -> Union[Graph, None]:
+        """
+        Load a graph from the given file
+        """
+        return MemoryGraph.load(filename)
 
     def create(self, data: CaseData, current: float) -> Graph:
         """

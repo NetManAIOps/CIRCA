@@ -2,9 +2,11 @@
 Define the interface for algorithms to access relations
 """
 from abc import ABC
+import json
 from typing import Dict
 from typing import List
 from typing import Set
+from typing import Union
 
 import networkx as nx
 
@@ -32,7 +34,7 @@ class Node:
         """
         return self._metric
 
-    def asdict(self) -> Dict[str, float]:
+    def asdict(self) -> Dict[str, str]:
         """
         Serialized as a dict
         """
@@ -58,6 +60,23 @@ class Graph(ABC):
     def __init__(self):
         self._nodes: Set[Node] = set()
         self._sorted_nodes: List[Set[Node]] = None
+
+    def dump(self, filename: str) -> bool:
+        # pylint: disable=no-self-use, unused-argument
+        """
+        Dump a graph into the given file
+
+        Return whether the operation succeeds
+        """
+        return False
+
+    @classmethod
+    def load(cls, filename: str) -> Union["Graph", None]:
+        # pylint: disable=unused-argument
+        """
+        Load a graph from the given file
+        """
+        return None
 
     @property
     def nodes(self) -> Set[Node]:
@@ -100,6 +119,30 @@ class MemoryGraph(Graph):
         super().__init__()
         self._graph = graph
         self._nodes.update(self._graph.nodes)
+
+    def dump(self, filename: str) -> bool:
+        nodes: List[Node] = list(self._graph.nodes)
+        node_indexes = {node: index for index, node in enumerate(nodes)}
+        edges = [
+            (node_indexes[cause], node_indexes[effect])
+            for cause, effect in self._graph.edges
+        ]
+        data = dict(nodes=[node.asdict() for node in nodes], edges=edges)
+
+        with open(filename, "w", encoding="UTF-8") as obj:
+            json.dump(data, obj, ensure_ascii=False, indent=2)
+
+    @classmethod
+    def load(cls, filename: str) -> Union["MemoryGraph", None]:
+        with open(filename, encoding="UTF-8") as obj:
+            data: dict = json.load(obj)
+        nodes: List[Node] = [Node(**node) for node in data["nodes"]]
+        graph = nx.DiGraph()
+        graph.add_nodes_from(nodes)
+        graph.add_edges_from(
+            (nodes[cause], nodes[effect]) for cause, effect in data["edges"]
+        )
+        return MemoryGraph(graph)
 
     @property
     def topological_sort(self) -> List[Set[Node]]:

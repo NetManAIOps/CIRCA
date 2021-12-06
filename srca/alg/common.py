@@ -152,6 +152,27 @@ class Model:
         ]
         self._name = "-".join([self._name_graph] + self._names_scorer)
 
+    @staticmethod
+    def dump(scores: Dict[Node, Score], filename: str):
+        """
+        Dump scores into the given file
+        """
+        data = [
+            dict(node=node.asdict(), score=score.asdict())
+            for node, score in scores.items()
+        ]
+        with open(filename, "w", encoding="UTF-8") as obj:
+            json.dump(data, obj, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def load(filename: str) -> Dict[Node, Score]:
+        """
+        Load scores from the given file
+        """
+        with open(filename, encoding="UTF-8") as obj:
+            data: List[Dict[str, dict]] = json.load(obj)
+        return {Node(**item["node"]): Score(**item["score"]) for item in data}
+
     @property
     def name(self) -> str:
         """
@@ -159,17 +180,43 @@ class Model:
         """
         return self._name
 
-    def analyze(self, data: CaseData, current: float) -> List[Tuple[Node, Score]]:
+    def analyze(
+        self, data: CaseData, current: float, output_dir: str = None
+    ) -> List[Tuple[Node, Score]]:
         """
         Conduct root cause analysis
         """
-        # TODO: Cache each step
-        graph = self._graph_factory.create(data=data, current=current)
+        # 1. Create a graph
+        if output_dir is not None:
+            graph_filename = os.path.join(output_dir, f"{self._name_graph}.json")
+            graph = None
+            if os.path.isfile(graph_filename):
+                graph = self._graph_factory.load(graph_filename)
+            if graph is None:
+                graph = self._graph_factory.create(data=data, current=current)
+                graph.dump(graph_filename)
+        else:
+            graph = self._graph_factory.create(data=data, current=current)
+
+        # 2. Score nodes
+        names = [self._name_graph]
         scores: Dict[Node, Score] = None
-        for scorer in self._scorers:
-            scores = scorer.score(
-                graph=graph, data=data, current=current, scores=scores
-            )
+        for name, scorer in zip(self._names_scorer, self._scorers):
+            names.append(name)
+            if output_dir is not None:
+                scorer_filename = "-".join(names)
+                scorer_filename = os.path.join(output_dir, f"{scorer_filename}.json")
+                if os.path.isfile(scorer_filename):
+                    scores = self.load(scorer_filename)
+                else:
+                    scores = scorer.score(
+                        graph=graph, data=data, current=current, scores=scores
+                    )
+                    self.dump(scores, scorer_filename)
+            else:
+                scores = scorer.score(
+                    graph=graph, data=data, current=current, scores=scores
+                )
         return sorted(scores.items(), key=lambda item: item[1].key, reverse=True)
 
 
@@ -257,7 +304,15 @@ def evaluate(
 
     for index, case in enumerate(cases):
         logger.debug("Analyze case %d", index)
-        ranks = model.analyze(data=case.data, current=case.data.detect_time + delay)
+        case_output_dir = None
+        if output_dir is not None:
+            case_output_dir = os.path.join(output_dir, str(index))
+            os.makedirs(case_output_dir, exist_ok=True)
+        ranks = model.analyze(
+            data=case.data,
+            current=case.data.detect_time + delay,
+            output_dir=case_output_dir,
+        )
         report(ranks=[node for node, _ in ranks], answers=case.answer)
     if output_dir is not None:
         report.dump(output_filename)

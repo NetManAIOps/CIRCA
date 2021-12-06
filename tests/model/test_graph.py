@@ -38,6 +38,14 @@ class TestNode:
         assert len({first: 1, Node(entity="entity1", metric="metric2"): 2}) == 2
         assert len({first: 1, second: 2}) == 2
 
+    @staticmethod
+    def test_asdict():
+        """
+        Node.asdict shall provide parameters to create a new Node
+        """
+        node = Node(entity="entity1", metric="metric1")
+        assert Node(**node.asdict()) == node
+
 
 def test_memory_graph():
     """
