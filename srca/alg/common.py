@@ -16,7 +16,6 @@ from scipy.stats import norm
 from sklearn.preprocessing import StandardScaler
 
 from .base import GraphFactory
-from .base import Ranker
 from .base import Score
 from .base import Scorer
 from ..model.case import Case
@@ -94,7 +93,13 @@ class DecomposableScorer(Scorer):
         """
         raise NotImplementedError
 
-    def score(self, graph: Graph, data: CaseData, current: float) -> Dict[Node, Score]:
+    def score(
+        self,
+        graph: Graph,
+        data: CaseData,
+        current: float,
+        scores: Dict[Node, Score] = None,
+    ) -> Dict[Node, Score]:
         series = data.load_data(graph, current)
         return {node: self.score_node(graph, series, node, data) for node in series}
 
@@ -121,17 +126,6 @@ class NSigmaScorer(DecomposableScorer):
         return score
 
 
-class ScoreRanker(Ranker):
-    """
-    Rank nodes by scores directly
-    """
-
-    def rank(
-        self, graph: Graph, data: CaseData, scores: Dict[Node, Score], current: float
-    ) -> List[Tuple[Node, Score]]:
-        return sorted(scores.items(), key=lambda item: item[1].score, reverse=True)
-
-
 class Model:
     """
     A combination of the algorithms
@@ -140,20 +134,23 @@ class Model:
     def __init__(
         self,
         graph_factory: GraphFactory,
-        scorer: Scorer,
-        ranker: Ranker,
-        names: Tuple[str, str, str] = None,
+        scorers: Sequence[Scorer],
+        names: Tuple[str, ...] = None,
     ):
+        if not scorers:
+            raise ValueError("Please provide at least one scorer")
         self._graph_factory = graph_factory
-        self._scorer = scorer
-        self._ranker = ranker
+        self._scorers = scorers
+        num_scorers = len(scorers)
         if names is None:
-            names = [None] * 3
-        self._name_graph, self._name_scorer, self._name_ranker = [
+            names = []
+        names = list(names) + [None] * (1 + num_scorers - len(names))
+        self._name_graph = names[0] or graph_factory.__class__.__name__
+        self._names_scorer = [
             obj.__class__.__name__ if name is None else name
-            for name, obj in zip(names, (graph_factory, scorer, ranker))
+            for name, obj in zip(names[1:][:num_scorers], scorers)
         ]
-        self._name = "-".join((self._name_graph, self._name_scorer, self._name_ranker))
+        self._name = "-".join([self._name_graph] + self._names_scorer)
 
     @property
     def name(self) -> str:
@@ -166,10 +163,14 @@ class Model:
         """
         Conduct root cause analysis
         """
-        # TODO: Cache the following 3 steps
+        # TODO: Cache each step
         graph = self._graph_factory.create(data=data, current=current)
-        scores = self._scorer.score(graph=graph, data=data, current=current)
-        return self._ranker.rank(graph=graph, data=data, scores=scores, current=current)
+        scores: Dict[Node, Score] = None
+        for scorer in self._scorers:
+            scores = scorer.score(
+                graph=graph, data=data, current=current, scores=scores
+            )
+        return sorted(scores.items(), key=lambda item: item[1].key, reverse=True)
 
 
 class Evaluation:

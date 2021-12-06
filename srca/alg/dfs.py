@@ -2,28 +2,27 @@
 Depth-first searching alone anomalies
 """
 from typing import Dict
-from typing import List
 from typing import Sequence
 from typing import Set
-from typing import Tuple
 
 import numpy as np
 
 from .base import Score
-from .common import ScoreRanker
+from .base import Scorer
 from .common import pearson
 from ..model.case import CaseData
 from ..model.graph import Graph
 from ..model.graph import Node
 
 
-class DFSRanker(ScoreRanker):
+class DFSScorer(Scorer):
     """
-    Rank anomalous nodes that do not have anomalous parents in the graph,
+    Filter in anomalous nodes that do not have anomalous parents in the graph,
     through searching from the SLA.
     """
 
-    def __init__(self, anomaly_threshold: float):
+    def __init__(self, anomaly_threshold: float, **kwargs):
+        super().__init__(**kwargs)
         self._anomaly_threshold = anomaly_threshold
 
     def _extended(
@@ -32,9 +31,13 @@ class DFSRanker(ScoreRanker):
         # pylint: disable=unused-argument, no-self-use
         return parent in anomalies
 
-    def rank(
-        self, graph: Graph, data: CaseData, scores: Dict[Node, Score], current: float
-    ) -> List[Tuple[Node, Score]]:
+    def score(
+        self,
+        graph: Graph,
+        data: CaseData,
+        current: float,
+        scores: Dict[Node, Score] = None,
+    ) -> Dict[Node, Score]:
         anomalies = {
             node
             for node, score in scores.items()
@@ -58,13 +61,12 @@ class DFSRanker(ScoreRanker):
                     roots.add(node)
             layer = next_layer
 
-        rank_scores = {node: scores[node] for node in roots}
-        return super().rank(graph, data, rank_scores, current)
+        return {node: scores[node] for node in roots}
 
 
-class MicroHECLRanker(DFSRanker):
+class MicroHECLScorer(DFSScorer):
     """
-    Extend DFSRanker, stopping if the correlation between two linked nodes
+    Extend DFSScorer, stopping if the correlation between two linked nodes
     is lower than the given threshold.
 
     See MicroHECL in ICSE-SEIP'21
@@ -88,10 +90,14 @@ class MicroHECLRanker(DFSRanker):
         correlation = pearson(series_a, series_b)
         return correlation >= self._stop_threshold
 
-    def rank(
-        self, graph: Graph, data: CaseData, scores: Dict[Node, Score], current: float
-    ) -> List[Tuple[Node, Score]]:
+    def score(
+        self,
+        graph: Graph,
+        data: CaseData,
+        current: float,
+        scores: Dict[Node, Score] = None,
+    ) -> Dict[Node, Score]:
         self._data = data.load_data(graph, current)
-        ranks = super().rank(graph, data, scores, current)
+        scores = super().score(graph=graph, data=data, current=current, scores=scores)
         self._data = None
-        return ranks
+        return scores

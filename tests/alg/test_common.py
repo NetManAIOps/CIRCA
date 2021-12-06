@@ -7,11 +7,9 @@ from scipy.stats import pearsonr
 import pytest
 
 from srca.alg.base import GraphFactory
-from srca.alg.base import Score
 from srca.alg.common import Evaluation
 from srca.alg.common import Model
 from srca.alg.common import NSigmaScorer
-from srca.alg.common import ScoreRanker
 from srca.alg.common import evaluate
 from srca.alg.common import pearson
 from srca.model.case import Case
@@ -47,22 +45,6 @@ def test_evaluation():
     assert evaluation.average(k) == 0.5
 
 
-def test_score_ranker():
-    """
-    ScoreRanker shall rank the node with the highest score as the first
-    """
-    latency = Node("DB", "Latency")
-    traffic = Node("DB", "Traffic")
-    saturation = Node("DB", "Saturation")
-    scores = {
-        latency: Score(0.8),
-        traffic: Score(0.9),
-        saturation: Score(0.5),
-    }
-    ranks = ScoreRanker().rank(None, None, scores, 0)
-    assert [node for node, _ in ranks] == [traffic, latency, saturation]
-
-
 def test_evaluate(graph_factory: GraphFactory, case_data: CaseData, tempdir: str):
     """
     evaluate shall reuse cached results
@@ -71,17 +53,18 @@ def test_evaluate(graph_factory: GraphFactory, case_data: CaseData, tempdir: str
         Case(data=case_data, answer={Node("DB", "Latency")}),
         Case(data=case_data, answer={Node("DB", "Saturation")}),
     ]
-    names = ("graph", "scorer", "ranker")
+    names = ("graph", "scorer")
     model = Model(
         graph_factory=graph_factory,
-        scorer=NSigmaScorer(),
-        ranker=ScoreRanker(),
+        scorers=[
+            NSigmaScorer(),
+        ],
         names=names,
     )
     report = evaluate(model, cases, delay=60, output_dir=tempdir)
     # Model.analyze shall not be called, using cache instead
     cached_report = evaluate(
-        Model(None, None, None, names), cases, delay=60, output_dir=tempdir
+        Model(None, [None], names), cases, delay=60, output_dir=tempdir
     )
     for k in range(1, 4):
         assert report.accuracy(k) == cached_report.accuracy(k)

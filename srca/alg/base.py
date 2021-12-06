@@ -4,9 +4,7 @@ Abstract interfaces for root cause analysis
 from abc import ABC
 from typing import Callable
 from typing import Dict
-from typing import List
 from typing import Sequence
-from typing import Tuple
 
 from ..model.case import CaseData
 from ..model.graph import Graph
@@ -20,6 +18,7 @@ class Score:
 
     def __init__(self, score: float):
         self._score = score
+        self._key: tuple = None
         self._info = {}
 
     def __eq__(self, obj) -> bool:
@@ -52,6 +51,20 @@ class Score:
         Update score
         """
         self._score = value
+
+    @property
+    def key(self) -> float:
+        """
+        key for sorting
+        """
+        return self.score if self._key is None else self._key
+
+    @key.setter
+    def key(self, value: tuple):
+        """
+        Update key
+        """
+        self._key = value
 
     def asdict(self) -> Dict[str, float]:
         """
@@ -86,24 +99,14 @@ class Scorer(ABC):
         self._aggregator = aggregator
         self._seed = seed
 
-    def score(self, graph: Graph, data: CaseData, current: float) -> Dict[Node, Score]:
+    def score(
+        self,
+        graph: Graph,
+        data: CaseData,
+        current: float,
+        scores: Dict[Node, Score] = None,
+    ) -> Dict[Node, Score]:
         """
         Estimate suspicious nodes
-        """
-        raise NotImplementedError
-
-
-class Ranker(ABC):
-    """
-    The abstract interface to rank nodes
-    """
-
-    def rank(
-        self, graph: Graph, data: CaseData, scores: Dict[Node, Score], current: float
-    ) -> List[Tuple[Node, Score]]:
-        """
-        Rank suspicious nodes
-
-        The most suspicious shall be ranked as the first.
         """
         raise NotImplementedError

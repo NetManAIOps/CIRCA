@@ -4,16 +4,16 @@ Test suites for DFSRanker
 import networkx as nx
 
 from srca.alg.base import Score
-from srca.alg.dfs import DFSRanker
+from srca.alg.dfs import DFSScorer
 from srca.model.case import CaseData
 from srca.model.graph import MemoryGraph
 from srca.model.graph import Graph
 from srca.model.graph import Node
 
 
-def test_dfs_ranker(graph: Graph, case_data: CaseData):
+def test_dfs_scorer(graph: Graph, case_data: CaseData):
     """
-    DFSRanker shall filter in anomalous nodes with no anomalous parents
+    DFSScorer shall filter in anomalous nodes with no anomalous parents
     """
     latency = Node("DB", "Latency")
     traffic = Node("DB", "Traffic")
@@ -25,16 +25,16 @@ def test_dfs_ranker(graph: Graph, case_data: CaseData):
     }
     params = dict(data=case_data, scores=scores, current=case_data.detect_time + 60)
 
-    ranker = DFSRanker(anomaly_threshold=0)
+    scorer = DFSScorer(anomaly_threshold=0)
     # With an empty graph
     empty_graph = nx.DiGraph()
     empty_graph.add_nodes_from([latency, traffic, saturation])
-    ranks = ranker.rank(graph=MemoryGraph(empty_graph), **params)
-    assert {node for node, _ in ranks} == {latency}
+    scores = scorer.score(graph=MemoryGraph(empty_graph), **params)
+    assert set(scores.keys()) == {latency}
     # Search all nodes
-    ranks = ranker.rank(graph=graph, **params)
-    assert {node for node, _ in ranks} == {traffic}
+    scores = scorer.score(graph=graph, **params)
+    assert set(scores.keys()) == {traffic}
     # Filter out nodes
-    ranker = DFSRanker(anomaly_threshold=2)
-    ranks = ranker.rank(graph=graph, **params)
-    assert {node for node, _ in ranks} == {saturation}
+    scorer = DFSScorer(anomaly_threshold=2)
+    scores = scorer.score(graph=graph, **params)
+    assert set(scores.keys()) == {saturation}

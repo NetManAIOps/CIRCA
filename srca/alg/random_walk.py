@@ -12,7 +12,6 @@ import pandas as pd
 
 from .base import Score
 from .base import Scorer
-from .correlation import PartialCorrelationScorer
 from ..model.case import CaseData
 from ..model.graph import Graph
 from ..model.graph import Node
@@ -25,7 +24,6 @@ class RandomWalkScorer(Scorer):
 
     def __init__(
         self,
-        scorer: Scorer = None,
         rho: float = 0.5,
         remove_sla: bool = False,
         num_loop: Union[int, Callable[[int], int]] = None,
@@ -33,7 +31,6 @@ class RandomWalkScorer(Scorer):
     ):
         # pylint: disable=too-many-arguments
         super().__init__(**kwargs)
-        self._scorer = scorer if scorer is not None else PartialCorrelationScorer()
         self._rho = rho
         self._remove_sla = remove_sla
         self._num_loop = num_loop if num_loop is not None else lambda num: num * 10
@@ -79,8 +76,13 @@ class RandomWalkScorer(Scorer):
             counter[node] += 1
         return counter
 
-    def score(self, graph: Graph, data: CaseData, current: float) -> Dict[Node, Score]:
-        scores = self._scorer.score(graph=graph, data=data, current=current)
+    def score(
+        self,
+        graph: Graph,
+        data: CaseData,
+        current: float,
+        scores: Dict[Node, Score] = None,
+    ) -> Dict[Node, Score]:
         if not scores:
             return scores
 
