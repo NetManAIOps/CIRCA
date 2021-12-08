@@ -35,8 +35,6 @@ def partial_correlation(
     confounders -= {node, cause}
     data_frame = pd.DataFrame(series)
 
-    if len(data_frame[node].unique()) == 1 or len(data_frame[cause].unique()) == 1:
-        return 0
     nodes: Set[Node] = set(data_frame.index)
     confounders = {
         confounder
@@ -62,10 +60,7 @@ class CorrelationScorer(DecomposableScorer):
         data: CaseData,
     ) -> Score:
         series_node = series[node]
-        if len(set(series_node)) == 1:
-            correlation, p_value = 0, 1
-        else:
-            correlation, p_value = pearsonr(series_node, series[data.sla])
+        correlation, p_value = pearsonr(series_node, series[data.sla])
 
         score = Score(abs(correlation))
         score["pearson"] = correlation

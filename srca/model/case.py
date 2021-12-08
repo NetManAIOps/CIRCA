@@ -71,15 +71,21 @@ class CaseData:
         """
         return self._test_window
 
-    def load_data(self, graph: Graph, current: float) -> Dict[Node, Sequence[float]]:
+    def load_data(
+        self, graph: Graph = None, current: float = None
+    ) -> Dict[Node, Sequence[float]]:
         """
         Parepare data
         """
-        current = max(current, self._detect_time)
+        if current is None:
+            current = self._detect_time
+        else:
+            current = max(current, self._detect_time)
+        nodes = self._data_loader.nodes if graph is None else graph.nodes
 
         start = self._detect_time - self._lookup_window
         series: Dict[Node, Sequence[float]] = {}
-        for node in graph.nodes:
+        for node in nodes:
             node_data = self._data_loader.load(
                 entity=node.entity,
                 metric=node.metric,
@@ -87,7 +93,7 @@ class CaseData:
                 end=current,
                 interval=self._interval,
             )
-            if node_data:
+            if node_data and len(set(node_data)) > 1:
                 series[node] = node_data
         return series
 
