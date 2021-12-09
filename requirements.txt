@@ -2,6 +2,7 @@ bayesian-changepoint-detection
 networkx
 numpy
 pandas
+pingouin
 rpy2
 scipy
 scikit-learn
