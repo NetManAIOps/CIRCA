@@ -40,6 +40,7 @@ class DynamicGraphFactory(GraphFactory):
 
         graph = nx.DiGraph()
         graph.add_nodes_from(nodes)
+        graph.add_node(data.sla)
         graph.add_edges_from(
             (nodes[cause], nodes[effect]) for cause, effect in zip(*np.where(matrix))
         )

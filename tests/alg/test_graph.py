@@ -11,6 +11,7 @@ from srca.alg.graph.r import PCAlgFactory
 from srca.model.case import CaseData
 from srca.model.data_loader import MemoryDataLoader
 from srca.model.graph import Graph
+from srca.model.graph import Node
 
 
 @pytest.mark.parametrize(
@@ -33,7 +34,7 @@ def test_smoke(factory: GraphFactory):
     )
     case_data = CaseData(
         data_loader=data_loader,
-        sla=None,
+        sla=Node(entity="DB", metric="0"),
         detect_time=timestamps[-2],
         lookup_window=size,
     )
