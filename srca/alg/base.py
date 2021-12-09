@@ -18,9 +18,9 @@ class Score:
     The more suspicious a node, the higher the score.
     """
 
-    def __init__(self, score: float, info: dict = None):
+    def __init__(self, score: float, info: dict = None, key: tuple = None):
         self._score = score
-        self._key: tuple = None
+        self._key = key
         self._info = {} if info is None else info
 
     def __eq__(self, obj) -> bool:
@@ -87,7 +87,10 @@ class Score:
         """
         Serialized as a dict
         """
-        return {"score": self.score, "info": {**self._info}}
+        data = {"score": self._score, "info": {**self._info}}
+        if self._key is not None:
+            data["key"] = self._key
+        return data
 
     def __repr__(self) -> str:
         return str(self.asdict())

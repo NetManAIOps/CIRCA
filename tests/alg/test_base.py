@@ -18,12 +18,15 @@ class TestScore:
         """
         _score = random.random()
         key, value = "key", "test"
+        score_key = (1, 0)
         score = Score(_score)
         score[key] = value
+        score.key = score_key
 
         another_score = Score(**score.asdict())
         assert another_score.score == _score
         assert another_score[key] == value
+        assert another_score.key == score_key
 
     @staticmethod
     def test_update():
