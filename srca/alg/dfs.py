@@ -75,8 +75,8 @@ class MicroHECLScorer(DFSScorer):
     ATTENTION: This implementation is not thread-safe
     """
 
-    def __init__(self, anomaly_threshold: float, stop_threshold: float = 0.7):
-        super().__init__(anomaly_threshold=anomaly_threshold)
+    def __init__(self, stop_threshold: float = 0.7, **kwargs):
+        super().__init__(**kwargs)
         self._stop_threshold = stop_threshold
         self._data: Dict[Node, Sequence[float]] = None
 
