@@ -98,6 +98,9 @@ class GraphFactory(ABC):
     The abstract interface to create Graph
     """
 
+    def __init__(self, seed: int = 519):
+        self._seed = seed
+
     @staticmethod
     def load(filename: str) -> Union[Graph, None]:
         """

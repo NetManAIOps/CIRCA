@@ -1,5 +1,8 @@
+bayesian-changepoint-detection
 networkx
 numpy
 pandas
+rpy2
 scipy
 scikit-learn
+tigramite

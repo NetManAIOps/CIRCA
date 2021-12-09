@@ -69,7 +69,8 @@ class StaticGraphFactory(GraphFactory):
     Create the same graph
     """
 
-    def __init__(self, graph: Graph):
+    def __init__(self, graph: Graph, **kwargs):
+        super().__init__(**kwargs)
         self._graph = graph
 
     def create(self, data: CaseData, current: float) -> Graph:
