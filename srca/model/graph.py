@@ -92,7 +92,24 @@ class Graph(ABC):
 
         The graph specifies the parents of each node.
         """
-        raise NotImplementedError
+        if self._sorted_nodes:
+            return self._sorted_nodes
+
+        degrees = {node: len(self.parents(node)) for node in self.nodes}
+
+        nodes: List[Set[Node]] = []
+        while degrees:
+            minimum = min(degrees.values())
+            node_set = {node for node, degree in degrees.items() if degree == minimum}
+            nodes.append(node_set)
+            for node in node_set:
+                degrees.pop(node)
+                for child in self.children(node):
+                    if child in degrees:
+                        degrees[child] -= 1
+
+        self._sorted_nodes = nodes
+        return nodes
 
     def children(self, node: Node, **kwargs) -> Set[Node]:
         """
@@ -143,14 +160,6 @@ class MemoryGraph(Graph):
             (nodes[cause], nodes[effect]) for cause, effect in data["edges"]
         )
         return MemoryGraph(graph)
-
-    @property
-    def topological_sort(self) -> List[Set[Node]]:
-        if self._sorted_nodes is None:
-            self._sorted_nodes = [
-                set(nodes) for nodes in nx.topological_generations(self._graph)
-            ]
-        return self._sorted_nodes
 
     def children(self, node: Node, **kwargs) -> Set[Node]:
         if not self._graph.has_node(node):
