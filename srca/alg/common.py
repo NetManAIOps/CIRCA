@@ -233,26 +233,12 @@ class Model:
                 graph = self._graph_factory.create(data=data, current=current)
 
         # 2. Score nodes
-        names = [self._name_graph]
-        scores: Dict[Node, Score] = None
-        for name, scorer in zip(self._names_scorer, self._scorers):
-            names.append(name)
-            scorer_name = "-".join(names)
-            if output_dir is not None:
-                scorer_filename = os.path.join(output_dir, f"{scorer_name}.json")
-                if os.path.isfile(scorer_filename):
-                    scores = self.load(scorer_filename)
-                else:
-                    with Timer(scorer_name, level=self._logging_level):
-                        scores = scorer.score(
-                            graph=graph, data=data, current=current, scores=scores
-                        )
-                    self.dump(scores, scorer_filename)
-            else:
-                with Timer(scorer_name, level=self._logging_level):
-                    scores = scorer.score(
-                        graph=graph, data=data, current=current, scores=scores
-                    )
+        with Timer(self.name, level=self._logging_level):
+            scores: Dict[Node, Score] = None
+            for scorer in self._scorers:
+                scores = scorer.score(
+                    graph=graph, data=data, current=current, scores=scores
+                )
         return sorted(scores.items(), key=lambda item: item[1].key, reverse=True)
 
 
