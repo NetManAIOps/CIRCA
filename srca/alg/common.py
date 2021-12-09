@@ -1,6 +1,7 @@
 """
 Common utilities
 """
+import datetime
 import json
 import logging
 import os
@@ -132,6 +133,29 @@ class NSigmaScorer(DecomposableScorer):
         return score
 
 
+class Timer:
+    """
+    Record duration as a context manager
+    """
+
+    def __init__(self, name: str, level: int = logging.INFO):
+        self._name = name
+        class_name = f"{self.__class__.__module__}.{self.__class__.__name__}"
+        self._logger = logging.getLogger(class_name)
+        self._logger.setLevel(level)
+
+        self._start: datetime.datetime = None
+
+    def __enter__(self) -> datetime.datetime:
+        self._start = datetime.datetime.now()
+        self._logger.info("%s starts at %s", self._name, self._start)
+        return self._start
+
+    def __exit__(self, *_):
+        duration = datetime.datetime.now() - self._start
+        self._logger.info("Duration of %s: %.6f", self._name, duration.total_seconds())
+
+
 class Model:
     """
     A combination of the algorithms
@@ -142,6 +166,7 @@ class Model:
         graph_factory: GraphFactory,
         scorers: Sequence[Scorer],
         names: Tuple[str, ...] = None,
+        logging_level: int = logging.INFO,
     ):
         if not scorers:
             raise ValueError("Please provide at least one scorer")
@@ -157,6 +182,7 @@ class Model:
             for name, obj in zip(names[1:][:num_scorers], scorers)
         ]
         self._name = "-".join([self._name_graph] + self._names_scorer)
+        self._logging_level = logging_level
 
     @staticmethod
     def dump(scores: Dict[Node, Score], filename: str):
@@ -199,30 +225,34 @@ class Model:
             if os.path.isfile(graph_filename):
                 graph = self._graph_factory.load(graph_filename)
             if graph is None:
-                graph = self._graph_factory.create(data=data, current=current)
+                with Timer(self._name_graph, level=self._logging_level):
+                    graph = self._graph_factory.create(data=data, current=current)
                 graph.dump(graph_filename)
         else:
-            graph = self._graph_factory.create(data=data, current=current)
+            with Timer(self._name_graph, level=self._logging_level):
+                graph = self._graph_factory.create(data=data, current=current)
 
         # 2. Score nodes
         names = [self._name_graph]
         scores: Dict[Node, Score] = None
         for name, scorer in zip(self._names_scorer, self._scorers):
             names.append(name)
+            scorer_name = "-".join(names)
             if output_dir is not None:
-                scorer_filename = "-".join(names)
-                scorer_filename = os.path.join(output_dir, f"{scorer_filename}.json")
+                scorer_filename = os.path.join(output_dir, f"{scorer_name}.json")
                 if os.path.isfile(scorer_filename):
                     scores = self.load(scorer_filename)
                 else:
+                    with Timer(scorer_name, level=self._logging_level):
+                        scores = scorer.score(
+                            graph=graph, data=data, current=current, scores=scores
+                        )
+                    self.dump(scores, scorer_filename)
+            else:
+                with Timer(scorer_name, level=self._logging_level):
                     scores = scorer.score(
                         graph=graph, data=data, current=current, scores=scores
                     )
-                    self.dump(scores, scorer_filename)
-            else:
-                scores = scorer.score(
-                    graph=graph, data=data, current=current, scores=scores
-                )
         return sorted(scores.items(), key=lambda item: item[1].key, reverse=True)
 
 
