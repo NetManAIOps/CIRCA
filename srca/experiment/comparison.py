@@ -1,10 +1,13 @@
 """
 Compare algorithm combinations
 """
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import as_completed
 import csv
 from itertools import chain
 from itertools import product
 import logging
+import os
 from typing import Dict
 from typing import List
 from typing import Tuple
@@ -157,7 +160,7 @@ def _get_random_walk_models(
     return models
 
 
-def get_models(seed: int = 519) -> List[Model]:
+def get_models(seed: int = 519) -> Tuple[List[Model], Dict[str, GraphFactory]]:
     """
     Prepare algorithm candidates
     """
@@ -171,32 +174,94 @@ def get_models(seed: int = 519) -> List[Model]:
         )
     )
 
-    return models
+    return models, graph_factories
 
 
-def run(
-    models: List[Model],
+def _create_graphs(
+    graph_factories: Dict[str, GraphFactory],
     cases: List[Case],
-    output_dir: str = "output",
-    report_filename: str = "report.csv",
+    delay: int,
+    output_dir: str,
 ):
-    """
-    Compare different models
-    """
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(run.__module__)
+    for graph_name, graph_factory in graph_factories.items():
+        for index, case in enumerate(cases):
+            case_output_dir = os.path.join(output_dir, str(index))
+            graph_filename = os.path.join(case_output_dir, f"{graph_name}.json")
+            if os.path.isfile(graph_filename):
+                continue
+            logger.info("Create graph %s for case %d", graph_name, index)
+            os.makedirs(case_output_dir, exist_ok=True)
+            graph = graph_factory.create(
+                data=case.data, current=case.data.detect_time + delay
+            )
+            graph.dump(graph_filename)
+
+
+def _evaluate(models: List[Model], cases: List[Case], delay: int, output_dir: str):
+    logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger(run.__module__)
     scores: List[Tuple[str, float, float, float, float]] = []
     for model in models:
         name = model.name
         logger.info("Evaluate %s", name)
-        report = evaluate(model, cases, output_dir=output_dir)
-        item = (
-            name,
-            report.accuracy(1),
-            report.accuracy(3),
-            report.accuracy(5),
-            report.average(5),
+        report = evaluate(model, cases, delay=delay, output_dir=output_dir)
+        scores.append(
+            (
+                name,
+                report.accuracy(1),
+                report.accuracy(3),
+                report.accuracy(5),
+                report.average(5),
+            )
         )
-        scores.append(item)
+    return scores
+
+
+def run(
+    models: List[Model],
+    graph_factories: Dict[str, GraphFactory],
+    cases: List[Case],
+    output_dir: str = "output",
+    report_filename: str = "report.csv",
+    delay: int = 300,
+    max_workers: int = 1,
+):
+    # pylint: disable=too-many-arguments
+    """
+    Compare different models
+    """
+    graph_factory_items = list(graph_factories.items())
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        tasks = [
+            executor.submit(
+                _create_graphs,
+                graph_factories=dict(graph_factory_items[i::max_workers]),
+                cases=cases,
+                delay=delay,
+                output_dir=output_dir,
+            )
+            for i in range(max_workers)
+        ]
+        for task in as_completed(tasks):
+            task.result()
+
+    scores: List[Tuple[str, float, float, float, float]] = []
+    num = max_workers * 4
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        tasks = [
+            executor.submit(
+                _evaluate,
+                models=models[i::num],
+                cases=cases,
+                delay=delay,
+                output_dir=output_dir,
+            )
+            for i in range(num)
+        ]
+        for task in as_completed(tasks):
+            scores += task.result()
 
     with open(report_filename, "w", encoding="UTF-8") as obj:
         writer = csv.writer(obj)

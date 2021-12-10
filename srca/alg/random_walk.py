@@ -17,6 +17,10 @@ from ..model.graph import Graph
 from ..model.graph import Node
 
 
+def _times(num: int, multiplier: int = 10) -> int:
+    return num * multiplier
+
+
 class RandomWalkScorer(Scorer):
     """
     Scorer based on random walk
@@ -33,7 +37,7 @@ class RandomWalkScorer(Scorer):
         super().__init__(**kwargs)
         self._rho = rho
         self._remove_sla = remove_sla
-        self._num_loop = num_loop if num_loop is not None else lambda num: num * 10
+        self._num_loop = num_loop if num_loop is not None else _times
         self._rng = np.random.default_rng(self._seed)
 
     def generate_transition_matrix(
