@@ -132,27 +132,29 @@ def _get_random_walk_models(
         if remove_sla:
             suffix += "_nosla"
         for graph_name, graph_factory in graph_factories.items():
+            # MicroCause
             models.append(
                 Model(
                     graph_factory=graph_factory,
                     scorers=[
-                        CorrelationScorer(**scorer_params),
+                        PartialCorrelationScorer(**scorer_params),
                         RandomWalkScorer(**params),
                     ],
-                    names=[graph_name, "Pearson", "RW" + suffix],
+                    names=[graph_name, "PartialCorrelation", "RW" + suffix],
                 ),
             )
+            # CloudRanger
             for beta in _ZERO_TO_ONE:
                 models.append(
                     Model(
                         graph_factory=graph_factory,
                         scorers=[
-                            PartialCorrelationScorer(**scorer_params),
+                            CorrelationScorer(**scorer_params),
                             SecondOrderRandomWalkScorer(beta=beta, **params),
                         ],
                         names=[
                             graph_name,
-                            "PartialCorrelation",
+                            "Pearson",
                             "RW_2" + suffix + f"_b{beta}",
                         ],
                     ),
