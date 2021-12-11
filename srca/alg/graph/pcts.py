@@ -1,6 +1,7 @@
 """
 Wrapper for PCMCI
 """
+import logging
 from typing import List
 from typing import Tuple
 
@@ -20,6 +21,8 @@ class _ParCorr(ParCorr):
     Wrap ParCorr to handle constant
     """
 
+    _logger_name = f"{ParCorr.__module__}.{ParCorr.__name__}"
+
     def _get_single_residuals(
         self,
         array: np.ndarray,
@@ -27,29 +30,36 @@ class _ParCorr(ParCorr):
         standardize: bool = True,
         return_means: bool = False,
     ) -> np.ndarray:
-
-        dim, _ = array.shape
-        dim_z = dim - 2
+        y: np.ndarray = array[target_var, :]
+        z: np.ndarray = np.copy(array[2:, :])
 
         # Standardize
         if standardize:
-            array -= array.mean(axis=1).reshape(dim, 1)
+            y -= y.mean()
+            std: np.ndarray = y.std()
+            if std > 0:
+                y /= std
+
+            z -= z.mean(axis=1).reshape(-1, 1)
+            std = z.std(axis=1)
             # Skip constant variables
-            std: np.ndarray = array.std(axis=1)
-            for var in np.where(std)[0]:
-                array[var, :] /= std[var]
+            indexes: np.ndarray = np.where(std)[0]
+            z = z[indexes, :] / std[indexes].reshape(-1, 1)
             if np.isnan(array).sum() != 0:
                 raise ValueError(
                     "nans after standardizing, " "possibly constant array!"
                 )
 
-        y = array[target_var, :]
-
-        if dim_z > 0:
-            z = np.fastCopyAndTranspose(array[2:, :])
-            beta_hat = np.linalg.lstsq(z, y, rcond=None)[0]
-            mean = np.dot(z, beta_hat)
-            resid = y - mean
+        if z.shape[0] > 0:
+            z = z.T
+            try:
+                beta_hat = np.linalg.lstsq(z, y, rcond=None)[0]
+                mean = np.dot(z, beta_hat)
+                resid = y - mean
+            except np.linalg.LinAlgError as err:
+                logging.getLogger(self._logger_name).warning(err, exc_info=True)
+                resid = y
+                mean = None
         else:
             resid = y
             mean = None
