@@ -6,7 +6,6 @@ from concurrent.futures import as_completed
 import csv
 from itertools import chain
 from itertools import product
-import logging
 import os
 from typing import Dict
 from typing import Iterable
@@ -28,6 +27,8 @@ from ..alg.graph.r import PCAlgFactory
 from ..alg.random_walk import RandomWalkScorer
 from ..alg.random_walk import SecondOrderRandomWalkScorer
 from ..model.case import Case
+from ..utils import Timer
+from ..utils import require_logging
 
 
 _ALPHAS = (0.01, 0.05, 0.1, 0.5)
@@ -241,30 +242,26 @@ def _create_graphs(
     delay: int,
     output_dir: str,
 ):
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(run.__module__)
     for graph_name, graph_factory in graph_factories.items():
         for index, case in enumerate(cases):
             case_output_dir = os.path.join(output_dir, str(index))
             graph_filename = os.path.join(case_output_dir, f"{graph_name}.json")
             if os.path.isfile(graph_filename):
                 continue
-            logger.info("Create graph %s for case %d", graph_name, index)
             os.makedirs(case_output_dir, exist_ok=True)
-            graph = graph_factory.create(
-                data=case.data, current=case.data.detect_time + delay
-            )
+            with Timer(name=f"{graph_name} for case {index}"):
+                graph = graph_factory.create(
+                    data=case.data, current=case.data.detect_time + delay
+                )
             graph.dump(graph_filename)
 
 
 def _evaluate(models: List[Model], cases: List[Case], delay: int, output_dir: str):
-    logging.basicConfig(level=logging.DEBUG)
-    logger = logging.getLogger(run.__module__)
     scores: List[Tuple[str, float, float, float, float]] = []
     for model in models:
         name = model.name
-        logger.info("Evaluate %s", name)
-        report = evaluate(model, cases, delay=delay, output_dir=output_dir)
+        with Timer(name=name):
+            report = evaluate(model, cases, delay=delay, output_dir=output_dir)
         scores.append(
             (
                 name,
@@ -279,9 +276,9 @@ def _evaluate(models: List[Model], cases: List[Case], delay: int, output_dir: st
 
 def run(
     models: List[Model],
-    graph_factories: Dict[str, GraphFactory],
     cases: List[Case],
-    output_dir: str = "output",
+    graph_factories: Dict[str, GraphFactory] = None,
+    output_dir: str = None,
     report_filename: str = "report.csv",
     delay: int = 300,
     max_workers: int = 1,
@@ -289,37 +286,56 @@ def run(
     # pylint: disable=too-many-arguments
     """
     Compare different models
-    """
-    graph_factory_items = list(graph_factories.items())
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        tasks = [
-            executor.submit(
-                _create_graphs,
-                graph_factories=dict(graph_factory_items[i::max_workers]),
-                cases=cases,
-                delay=delay,
-                output_dir=output_dir,
-            )
-            for i in range(max_workers)
-        ]
-        for task in as_completed(tasks):
-            task.result()
 
-    scores: List[Tuple[str, float, float, float, float]] = []
-    num = max_workers * 4
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        tasks = [
-            executor.submit(
-                _evaluate,
-                models=models[i::num],
-                cases=cases,
-                delay=delay,
-                output_dir=output_dir,
-            )
-            for i in range(num)
-        ]
-        for task in as_completed(tasks):
-            scores += task.result()
+    Parameters:
+        graph_factories: If given, graphs will be created for each case
+            before any model starts.
+        output_dir: Where the intermediate results will be cached.
+        report_filename: The name of a csv file that will store the experiment results.
+        delay: A model is assumed to start in this amount of seconds
+            after a fault is detected.
+        max_workers: The given number of processes will be created
+            to accelerate the calculation.
+    """
+    if output_dir and graph_factories is not None:
+        if max_workers >= 2:
+            graph_factory_items = list(graph_factories.items())
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                tasks = [
+                    executor.submit(
+                        require_logging(_create_graphs),
+                        graph_factories=dict(graph_factory_items[i::max_workers]),
+                        cases=cases,
+                        delay=delay,
+                        output_dir=output_dir,
+                    )
+                    for i in range(max_workers)
+                ]
+                for task in as_completed(tasks):
+                    task.result()
+        else:
+            _create_graphs(graph_factories=graph_factories, cases=cases, delay=delay,
+                        output_dir=output_dir,)
+
+    if max_workers >= 2:
+        scores: List[Tuple[str, float, float, float, float]] = []
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            tasks = [
+                executor.submit(
+                    require_logging(_evaluate),
+                    models=models[i::max_workers],
+                    cases=cases,
+                    delay=delay,
+                    output_dir=output_dir,
+                )
+                for i in range(max_workers)
+            ]
+            for task in as_completed(tasks):
+                scores += task.result()
+    else:
+        scores = _evaluate(
+            models=models, cases=cases, delay=delay, output_dir=output_dir
+        )
 
     with open(report_filename, "w", encoding="UTF-8") as obj:
         writer = csv.writer(obj)

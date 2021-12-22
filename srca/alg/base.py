@@ -101,7 +101,7 @@ class GraphFactory(ABC):
     The abstract interface to create Graph
     """
 
-    def __init__(self, seed: int = 519):
+    def __init__(self, seed: int = 0):
         self._seed = seed
 
     @staticmethod
@@ -124,7 +124,7 @@ class Scorer(ABC):
     """
 
     def __init__(
-        self, aggregator: Callable[[Sequence[float]], float] = max, seed: int = 519
+        self, aggregator: Callable[[Sequence[float]], float] = max, seed: int = 0
     ):
         self._aggregator = aggregator
         self._seed = seed
