@@ -2,13 +2,15 @@
 Define the interface for algorithms to access relations
 """
 from abc import ABC
-import json
 from typing import Dict
 from typing import List
 from typing import Set
 from typing import Union
 
 import networkx as nx
+
+from ..utils import dump_json
+from ..utils import load_json
 
 
 class Node:
@@ -145,14 +147,11 @@ class MemoryGraph(Graph):
             for cause, effect in self._graph.edges
         ]
         data = dict(nodes=[node.asdict() for node in nodes], edges=edges)
-
-        with open(filename, "w", encoding="UTF-8") as obj:
-            json.dump(data, obj, ensure_ascii=False, indent=2)
+        dump_json(filename=filename, data=data)
 
     @classmethod
     def load(cls, filename: str) -> Union["MemoryGraph", None]:
-        with open(filename, encoding="UTF-8") as obj:
-            data: dict = json.load(obj)
+        data: dict = load_json(filename=filename)
         nodes: List[Node] = [Node(**node) for node in data["nodes"]]
         graph = nx.DiGraph()
         graph.add_nodes_from(nodes)

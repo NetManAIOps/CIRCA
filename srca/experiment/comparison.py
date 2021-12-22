@@ -3,7 +3,6 @@ Compare algorithm combinations
 """
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import as_completed
-import csv
 from itertools import chain
 from itertools import product
 import os
@@ -28,6 +27,7 @@ from ..alg.random_walk import RandomWalkScorer
 from ..alg.random_walk import SecondOrderRandomWalkScorer
 from ..model.case import Case
 from ..utils import Timer
+from ..utils import dump_csv
 from ..utils import require_logging
 
 
@@ -314,8 +314,12 @@ def run(
                 for task in as_completed(tasks):
                     task.result()
         else:
-            _create_graphs(graph_factories=graph_factories, cases=cases, delay=delay,
-                        output_dir=output_dir,)
+            _create_graphs(
+                graph_factories=graph_factories,
+                cases=cases,
+                delay=delay,
+                output_dir=output_dir,
+            )
 
     if max_workers >= 2:
         scores: List[Tuple[str, float, float, float, float]] = []
@@ -337,7 +341,8 @@ def run(
             models=models, cases=cases, delay=delay, output_dir=output_dir
         )
 
-    with open(report_filename, "w", encoding="UTF-8") as obj:
-        writer = csv.writer(obj)
-        writer.writerow(["method", "AC@1", "AC@3", "AC@5", "Avg@5"])
-        writer.writerows(scores)
+    dump_csv(
+        filename=report_filename,
+        data=scores,
+        headers=["method", "AC@1", "AC@3", "AC@5", "Avg@5"],
+    )

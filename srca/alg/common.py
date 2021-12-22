@@ -1,7 +1,6 @@
 """
 Common utilities
 """
-import json
 import logging
 import os
 from typing import Dict
@@ -23,6 +22,8 @@ from ..model.case import CaseData
 from ..model.graph import Graph
 from ..model.graph import MemoryGraph
 from ..model.graph import Node
+from ..utils import dump_json
+from ..utils import load_json
 
 
 def pearson(series_a: np.ndarray, series_b: np.ndarray) -> float:
@@ -167,16 +168,14 @@ class Model:
             dict(node=node.asdict(), score=score.asdict())
             for node, score in scores.items()
         ]
-        with open(filename, "w", encoding="UTF-8") as obj:
-            json.dump(data, obj, ensure_ascii=False, indent=2)
+        dump_json(filename=filename, data=data)
 
     @staticmethod
     def load(filename: str) -> Dict[Node, Score]:
         """
         Load scores from the given file
         """
-        with open(filename, encoding="UTF-8") as obj:
-            data: List[Dict[str, dict]] = json.load(obj)
+        data: List[Dict[str, dict]] = load_json(filename)
         return {Node(**item["node"]): Score(**item["score"]) for item in data}
 
     @property
@@ -235,21 +234,17 @@ class Evaluation:
         """
         Dump ranks into the given file
         """
-        with open(filename, "w", encoding="UTF-8") as obj:
-            json.dump(
-                [[node.asdict() for node in ranks] for ranks in self._ranks],
-                obj,
-                ensure_ascii=False,
-                indent=2,
-            )
+        dump_json(
+            filename=filename,
+            data=[[node.asdict() for node in ranks] for ranks in self._ranks],
+        )
 
     def load(self, filename: str, answers: Sequence[Set[Node]]) -> None:
         """
         Load ranks from the given file
         """
         self._ranks = []
-        with open(filename, "r", encoding="UTF-8") as obj:
-            report: List[List[dict]] = json.load(obj)
+        report: List[List[dict]] = load_json(filename)
         for ranks, answer in zip(report, answers):
             self(
                 [Node(entity=node["entity"], metric=node["metric"]) for node in ranks],

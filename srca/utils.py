@@ -1,13 +1,18 @@
 """
 Utilities
 """
+import csv
 import datetime
+import json
 import logging
 from typing import Callable
+from typing import Sequence
 from typing import TypeVar
 
 
 _Template = TypeVar("_Template")
+
+ENCODING = "UTF-8"
 
 
 def get_logging_level() -> int:
@@ -55,3 +60,40 @@ class Timer:
     def __exit__(self, *_):
         duration = datetime.datetime.now() - self._start
         self._logger.info("Duration of %s: %.6f", self._name, duration.total_seconds())
+
+
+def dump_csv(filename: str, data: Sequence[Sequence], headers: Sequence[str] = None):
+    """
+    Dump data into a csv file
+    """
+    with open(filename, "w", encoding=ENCODING) as obj:
+        writer = csv.writer(obj)
+        if headers is not None:
+            writer.writerow(headers)
+        writer.writerows(data)
+
+
+def load_csv(filename: str):
+    """
+    Load data from a csv file
+    """
+    with open(filename, encoding=ENCODING) as obj:
+        reader = csv.reader(obj)
+        for row in reader:
+            yield row
+
+
+def dump_json(filename: str, data):
+    """
+    Dump data into a json file
+    """
+    with open(filename, "w", encoding=ENCODING) as obj:
+        json.dump(data, obj, ensure_ascii=False, indent=2)
+
+
+def load_json(filename: str):
+    """
+    Load data from a json file
+    """
+    with open(filename, encoding=ENCODING) as obj:
+        return json.load(obj)
