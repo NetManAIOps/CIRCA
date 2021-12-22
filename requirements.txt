@@ -1,3 +1,4 @@
+ads-evt
 bayesian-changepoint-detection
 networkx
 numpy

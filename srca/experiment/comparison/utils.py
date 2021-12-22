@@ -17,6 +17,7 @@ from ...alg.correlation import CorrelationScorer
 from ...alg.correlation import PartialCorrelationScorer
 from ...alg.dfs import DFSScorer
 from ...alg.dfs import MicroHECLScorer
+from ...alg.evt import SPOTScorer
 from ...alg.graph.pcts import PCTSFactory
 from ...alg.graph.r import PCAlgFactory
 from ...alg.random_walk import RandomWalkScorer
@@ -26,6 +27,7 @@ from ...alg.random_walk import SecondOrderRandomWalkScorer
 _ALPHAS = (0.01, 0.05, 0.1, 0.5)
 _MAX_CONDS_DIMS = (2, 3, 5, 10, None)
 _TAU_MAXS = (0, 1, 2, 3)
+_RISKS = (1e-2, 1e-3, 1e-4)
 
 _ZERO_TO_ONE = (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 _TRUE_AND_FALSE = (True, False)
@@ -59,15 +61,27 @@ def _get_graph_factories(seed: int, params: dict = None) -> Dict[str, GraphFacto
     return graph_factories
 
 
-def _get_detectors(**scorer_params) -> Dict[str, Tuple[Scorer, float]]:
+def _get_detectors(
+    params: dict = None, **scorer_params
+) -> Dict[str, Tuple[Scorer, float]]:
     """
     Map a detector name to a pair of Scorer and threshold
     """
-    return {"NSigma": (NSigmaScorer(**scorer_params), 3)}
+    if params is None:
+        params = {}
+    risks = _require_iterable(params.get("risk", _RISKS))
+
+    detectors: Dict[str, Tuple[Scorer, float]] = {
+        "NSigma": (NSigmaScorer(**scorer_params), 3),
+    }
+    for risk in risks:
+        detectors[f"SPOT_p{risk}"] = (SPOTScorer(proba=risk, **scorer_params), 0)
+    return detectors
 
 
-def _get_anomaly_detection_models(**scorer_params) -> List[Model]:
-    detectors = _get_detectors(**scorer_params)
+def _get_anomaly_detection_models(
+    detectors: Dict[str, Tuple[Scorer, float]]
+) -> List[Model]:
     graph_factory = EmptyGraphFactory()
     return [
         Model(
@@ -82,14 +96,16 @@ def _get_anomaly_detection_models(**scorer_params) -> List[Model]:
 
 
 def _get_dfs_models(
-    graph_factories: Dict[str, GraphFactory], params: dict = None, **scorer_params
+    graph_factories: Dict[str, GraphFactory],
+    detectors: Dict[str, Tuple[Scorer, float]],
+    params: dict = None,
+    **scorer_params,
 ) -> List[Model]:
     if params is None:
         params = {}
     stop_thresholds = _require_iterable(params.get("stop_threshold", _ZERO_TO_ONE))
 
     models: List[Model] = []
-    detectors = _get_detectors(**scorer_params)
     # DFS
     for detector_name, (detector, anomaly_threshold) in detectors.items():
         scorer = DFSScorer(anomaly_threshold=anomaly_threshold, **scorer_params)
@@ -195,6 +211,8 @@ def get_models(
                 max_conds_dim: The maximum size of condition set for PC and PCTS.
                     Default: (2, 3, 5, 10, None)
                 tau_max: The maximum lag considered by PCTS. Default: (0, 1, 2, 3)
+            ad: Anomaly detection parameters
+                risk: The probability of risk for SPOT. Default: (1e-2, 1e-3, 1e-4)
             dfs: DFS parameters
                 stop_threshold: Threshold for MicroHECL. Default: (0.0, 0.1, ..., 1.0)
             rw: Random walk parameters
@@ -209,11 +227,13 @@ def get_models(
     scorer_params = dict(seed=seed)
     if graph_factories is None:
         graph_factories = _get_graph_factories(seed=seed, params=params.get("graph"))
+    detectors = _get_detectors(params=params.get("ad"), **scorer_params)
     models = list(
         chain(
-            _get_anomaly_detection_models(**scorer_params),
+            _get_anomaly_detection_models(detectors),
             _get_dfs_models(
                 graph_factories=graph_factories,
+                detectors=detectors,
                 params=params.get("dfs"),
                 **scorer_params,
             ),

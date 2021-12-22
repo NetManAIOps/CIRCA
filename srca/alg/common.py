@@ -103,12 +103,15 @@ class DecomposableScorer(Scorer):
         scores: Dict[Node, Score] = None,
     ) -> Dict[Node, Score]:
         series = data.load_data(graph, current)
+        results: Dict[Node, Score] = {}
+        candidates = series.keys() if scores is None else scores.keys()
+        for node in candidates:
+            score = self.score_node(graph, series, node, data)
+            if score is not None:
+                results[node] = score
         if scores is None:
-            return {node: self.score_node(graph, series, node, data) for node in series}
-        return {
-            node: score.update(self.score_node(graph, series, node, data))
-            for node, score in scores.items()
-        }
+            return results
+        return {node: scores[node].update(score) for node, score in results.items()}
 
 
 class NSigmaScorer(DecomposableScorer):

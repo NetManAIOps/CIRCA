@@ -13,6 +13,7 @@ from srca.alg.correlation import CorrelationScorer
 from srca.alg.correlation import PartialCorrelationScorer
 from srca.alg.dfs import DFSScorer
 from srca.alg.dfs import MicroHECLScorer
+from srca.alg.evt import SPOTScorer
 from srca.alg.random_walk import RandomWalkScorer
 from srca.alg.random_walk import SecondOrderRandomWalkScorer
 from srca.model.case import CaseData
@@ -24,6 +25,7 @@ from srca.model.case import CaseData
         ((NSigmaScorer(),),),
         ((NSigmaScorer(), MicroHECLScorer(anomaly_threshold=3, stop_threshold=0.7)),),
         ((NSigmaScorer(), DFSScorer(anomaly_threshold=3)),),
+        ((SPOTScorer(proba=0.1),),),
         ((PartialCorrelationScorer(), RandomWalkScorer()),),
         ((CorrelationScorer(), SecondOrderRandomWalkScorer()),),
     ],
