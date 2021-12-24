@@ -56,7 +56,7 @@ class RandomWalkScorer(Scorer):
 
             parents = graph.parents(node)
             if self._remove_sla:
-                parents.remove(data.sla)
+                parents -= {data.sla}
             for parent in parents:
                 if parent in scores:
                     matrix[node][parent] = abs(scores[parent].score)
