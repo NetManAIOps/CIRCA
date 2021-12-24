@@ -38,11 +38,13 @@ def _create_graphs(
 
 
 def _evaluate(models: List[Model], cases: List[Case], delay: int, output_dir: str):
-    scores: List[Tuple[str, float, float, float, float]] = []
+    scores: List[Tuple[str, float, float, float, float, float]] = []
+    num_cases = max(len(cases), 1)
     for model in models:
         name = model.name
-        with Timer(name=name):
+        with Timer(name=name) as timer:
             report = evaluate(model, cases, delay=delay, output_dir=output_dir)
+            duration = timer.duration
         scores.append(
             (
                 name,
@@ -50,6 +52,7 @@ def _evaluate(models: List[Model], cases: List[Case], delay: int, output_dir: st
                 report.accuracy(3),
                 report.accuracy(5),
                 report.average(5),
+                duration.total_seconds() / num_cases,
             )
         )
     return scores
@@ -103,7 +106,7 @@ def run(
             )
 
     if max_workers >= 2:
-        scores: List[Tuple[str, float, float, float, float]] = []
+        scores: List[Tuple[str, float, float, float, float, float]] = []
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             tasks = [
                 executor.submit(
@@ -125,5 +128,5 @@ def run(
     dump_csv(
         filename=report_filename,
         data=scores,
-        headers=["method", "AC@1", "AC@3", "AC@5", "Avg@5"],
+        headers=["method", "AC@1", "AC@3", "AC@5", "Avg@5", "avg duration"],
     )

@@ -52,14 +52,29 @@ class Timer:
 
         self._start: datetime.datetime = None
 
-    def __enter__(self) -> datetime.datetime:
-        self._start = datetime.datetime.now()
-        self._logger.info("%s starts at %s", self._name, self._start)
+    @property
+    def start(self) -> datetime.datetime:
+        """
+        Start time
+        """
         return self._start
 
+    @property
+    def duration(self) -> datetime.timedelta:
+        """
+        Elapsed time since start
+        """
+        return datetime.datetime.now() - self._start
+
+    def __enter__(self):
+        self._start = datetime.datetime.now()
+        self._logger.info("%s starts at %s", self._name, self._start)
+        return self
+
     def __exit__(self, *_):
-        duration = datetime.datetime.now() - self._start
-        self._logger.info("Duration of %s: %.6f", self._name, duration.total_seconds())
+        self._logger.info(
+            "Duration of %s: %.6f", self._name, self.duration.total_seconds()
+        )
 
 
 def dump_csv(filename: str, data: Sequence[Sequence], headers: Sequence[str] = None):
