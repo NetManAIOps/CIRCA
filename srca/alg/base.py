@@ -81,6 +81,7 @@ class Score:
         """
         self._info.update(score.info)
         self.score = score.score
+        self.key = score.key
         return self
 
     def asdict(self) -> Dict[str, float]:
