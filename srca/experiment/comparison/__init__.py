@@ -4,6 +4,7 @@ Compare algorithm combinations
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import as_completed
 import logging
+from multiprocessing import Process
 import os
 from typing import Dict
 from typing import List
@@ -14,10 +15,21 @@ from ...alg.common import Model
 from ...alg.common import evaluate
 from ...model.case import Case
 from ...utils import Timer
-from ...utils import Timeout
 from ...utils import dump_csv
 from ...utils import dump_json
 from ...utils import require_logging
+
+
+def _create_graph(
+    graph_factory: GraphFactory,
+    case: Case,
+    timer_name: str,
+    graph_filename: str,
+    current: float,
+):
+    with Timer(name=timer_name):
+        graph = graph_factory.create(data=case.data, current=current)
+    graph.dump(graph_filename)
 
 
 def _create_graphs(
@@ -35,14 +47,21 @@ def _create_graphs(
             if os.path.isfile(graph_filename):
                 continue
             os.makedirs(case_output_dir, exist_ok=True)
-            try:
-                with Timeout(seconds=timeout):
-                    with Timer(name=f"{graph_name} for case {index}"):
-                        graph = graph_factory.create(
-                            data=case.data, current=case.data.detect_time + delay
-                        )
-                    graph.dump(graph_filename)
-            except TimeoutError:
+
+            task = Process(
+                target=require_logging(_create_graph),
+                kwargs=dict(
+                    graph_factory=graph_factory,
+                    case=case,
+                    timer_name=f"{graph_name} for case {index}",
+                    graph_filename=graph_filename,
+                    current=case.data.detect_time + delay,
+                ),
+            )
+            task.start()
+            task.join(timeout=timeout)
+            if task.is_alive():
+                task.terminate()
                 logger.warning("%s: Timeout for case %d", graph_name, index)
                 dump_json(graph_filename, {"status": "Timeout"})
 

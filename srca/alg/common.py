@@ -2,6 +2,8 @@
 Common utilities
 """
 import logging
+from multiprocessing import Process
+from multiprocessing import Queue
 import os
 from typing import Dict
 from typing import List
@@ -23,9 +25,9 @@ from ..model.graph import Graph
 from ..model.graph import LoadingInvalidGraphException
 from ..model.graph import MemoryGraph
 from ..model.graph import Node
-from ..utils import Timeout
 from ..utils import dump_json
 from ..utils import load_json
+from ..utils import require_logging
 
 
 def pearson(series_a: np.ndarray, series_b: np.ndarray) -> float:
@@ -274,6 +276,18 @@ class Evaluation:
         return sum(self.accuracy(i) for i in range(1, k + 1)) / k
 
 
+def _analyze(queue: Queue, model: Model, case: Case, current: float, output_dir: str):
+    try:
+        ranks = model.analyze(
+            data=case.data,
+            current=current,
+            output_dir=output_dir,
+        )
+    except LoadingInvalidGraphException:
+        ranks = []
+    queue.put(ranks)
+
+
 def evaluate(
     model: Model,
     cases: Sequence[Case],
@@ -303,16 +317,26 @@ def evaluate(
         if output_dir is not None:
             case_output_dir = os.path.join(output_dir, str(index))
             os.makedirs(case_output_dir, exist_ok=True)
-        try:
-            with Timeout(seconds=timeout):
-                ranks = model.analyze(
-                    data=case.data,
-                    current=case.data.detect_time + delay,
-                    output_dir=case_output_dir,
-                )
-        except (LoadingInvalidGraphException, TimeoutError):
+
+        queue = Queue()
+        task = Process(
+            target=require_logging(_analyze),
+            kwargs=dict(
+                queue=queue,
+                model=model,
+                case=case,
+                current=case.data.detect_time + delay,
+                output_dir=case_output_dir,
+            ),
+        )
+        task.start()
+        task.join(timeout=timeout)
+        if task.is_alive():
+            task.terminate()
             logger.warning("Timeout for case %d", index)
             ranks = []
+        else:
+            ranks = queue.get()
         report(ranks=[node for node, _ in ranks], answers=case.answer)
     if output_dir is not None:
         report.dump(output_filename)
