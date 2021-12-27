@@ -36,8 +36,10 @@ class PCAlgFactory(DynamicGraphFactory):
         method: str = _Method.PC_GAUSS.value,
         tau_max: int = 3,
         max_conds_dim: int = np.inf,
+        num_cores: int = 1,
         **kwargs,
     ):
+        # pylint: disable=too-many-arguments
         """
         alpha: desired significance level in (0, 1)
         method: name of the method to be used
@@ -51,6 +53,7 @@ class PCAlgFactory(DynamicGraphFactory):
         self._method = self._Method(method)
         self._tau_max = tau_max
         self._max_conds_dim = max_conds_dim
+        self._num_cores = num_cores
 
     def _create(
         self, data: np.ndarray, nodes: List[Node]
@@ -72,6 +75,7 @@ class PCAlgFactory(DynamicGraphFactory):
                 "CItest": "gsq",
                 "alpha": self._alpha,
                 "m.max": self._max_conds_dim,
+                "numCores": self._num_cores,
             }
             fun = robjects.r["runPC"]
         else:  # self._method == self._Method.PC_GAUSS
@@ -80,6 +84,7 @@ class PCAlgFactory(DynamicGraphFactory):
                 "CItest": "gauss",
                 "alpha": self._alpha,
                 "m.max": self._max_conds_dim,
+                "numCores": self._num_cores,
             }
             fun = robjects.r["runPC"]
 

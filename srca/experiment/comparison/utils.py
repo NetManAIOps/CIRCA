@@ -45,6 +45,7 @@ def _get_graph_factories(seed: int, params: dict = None) -> Dict[str, GraphFacto
     alphas = _require_iterable(params.get("alpha", _ALPHAS))
     max_conds_dims = _require_iterable(params.get("max_conds_dim", _MAX_CONDS_DIMS))
     tau_maxs = _require_iterable(params.get("tau_maxs", _TAU_MAXS))
+    num_cores = params.get("num_cores", 1)
 
     graph_factories: Dict[str, GraphFactory] = {}
     for alpha, max_conds_dim in product(alphas, max_conds_dims):
@@ -53,8 +54,12 @@ def _get_graph_factories(seed: int, params: dict = None) -> Dict[str, GraphFacto
         if max_conds_dim is not None:
             params["max_conds_dim"] = max_conds_dim
             suffix += f"_m{max_conds_dim}"
-        graph_factories["PC_gauss" + suffix] = PCAlgFactory(method="PC-gauss", **params)
-        graph_factories["PC_gsq" + suffix] = PCAlgFactory(method="PC-gsq", **params)
+        graph_factories["PC_gauss" + suffix] = PCAlgFactory(
+            method="PC-gauss", num_cores=num_cores, **params
+        )
+        graph_factories["PC_gsq" + suffix] = PCAlgFactory(
+            method="PC-gsq", num_cores=num_cores, **params
+        )
         for tau_max in tau_maxs:
             graph_name = "PCTS" + suffix + f"_t{tau_max}"
             graph_factories[graph_name] = PCTSFactory(tau_max=tau_max, **params)
@@ -211,6 +216,8 @@ def get_models(
                 max_conds_dim: The maximum size of condition set for PC and PCTS.
                     Default: (2, 3, 5, 10, None)
                 tau_max: The maximum lag considered by PCTS. Default: (0, 1, 2, 3)
+                num_cores: The number of cores to be used for parallel estimation of
+                    skeleton for PC. num_cores shall be an integer. Default: 1
             ad: Anomaly detection parameters
                 risk: The probability of risk for SPOT. Default: (1e-2, 1e-3, 1e-4)
             dfs: DFS parameters
