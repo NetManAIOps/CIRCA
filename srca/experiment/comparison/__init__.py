@@ -3,6 +3,7 @@ Compare algorithm combinations
 """
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import as_completed
+import logging
 import os
 from typing import Dict
 from typing import List
@@ -13,7 +14,9 @@ from ...alg.common import Model
 from ...alg.common import evaluate
 from ...model.case import Case
 from ...utils import Timer
+from ...utils import Timeout
 from ...utils import dump_csv
+from ...utils import dump_json
 from ...utils import require_logging
 
 
@@ -22,7 +25,9 @@ def _create_graphs(
     cases: List[Case],
     delay: int,
     output_dir: str,
+    timeout: int = 3600,
 ):
+    logger = logging.getLogger(f"{run.__module__}.create_graphs")
     for graph_name, graph_factory in graph_factories.items():
         for index, case in enumerate(cases):
             case_output_dir = os.path.join(output_dir, str(index))
@@ -30,20 +35,25 @@ def _create_graphs(
             if os.path.isfile(graph_filename):
                 continue
             os.makedirs(case_output_dir, exist_ok=True)
-            with Timer(name=f"{graph_name} for case {index}"):
-                graph = graph_factory.create(
-                    data=case.data, current=case.data.detect_time + delay
-                )
-            graph.dump(graph_filename)
+            try:
+                with Timeout(seconds=timeout):
+                    with Timer(name=f"{graph_name} for case {index}"):
+                        graph = graph_factory.create(
+                            data=case.data, current=case.data.detect_time + delay
+                        )
+                    graph.dump(graph_filename)
+            except TimeoutError:
+                logger.warning("%s: Timeout for case %d", graph_name, index)
+                dump_json(graph_filename, {"status": "Timeout"})
 
 
-def _evaluate(models: List[Model], cases: List[Case], delay: int, output_dir: str):
+def _evaluate(models: List[Model], cases: List[Case], **kwargs):
     scores: List[Tuple[str, float, float, float, float, float]] = []
     num_cases = max(len(cases), 1)
     for model in models:
         name = model.name
         with Timer(name=name) as timer:
-            report = evaluate(model, cases, delay=delay, output_dir=output_dir)
+            report = evaluate(model, cases, **kwargs)
             duration = timer.duration
         scores.append(
             (
@@ -66,6 +76,7 @@ def run(
     report_filename: str = "report.csv",
     delay: int = 300,
     max_workers: int = 1,
+    timeout: int = 3600,
 ):
     # pylint: disable=too-many-arguments
     """
@@ -81,6 +92,7 @@ def run(
         max_workers: The given number of processes will be created
             to accelerate the calculation.
     """
+    params = dict(delay=delay, output_dir=output_dir, timeout=timeout)
     if output_dir and graph_factories is not None:
         if max_workers >= 2:
             graph_factory_items = list(graph_factories.items())
@@ -90,8 +102,7 @@ def run(
                         require_logging(_create_graphs),
                         graph_factories=dict(graph_factory_items[i::max_workers]),
                         cases=cases,
-                        delay=delay,
-                        output_dir=output_dir,
+                        **params,
                     )
                     for i in range(max_workers)
                 ]
@@ -101,8 +112,7 @@ def run(
             _create_graphs(
                 graph_factories=graph_factories,
                 cases=cases,
-                delay=delay,
-                output_dir=output_dir,
+                **params,
             )
 
     if max_workers >= 2:
@@ -113,17 +123,14 @@ def run(
                     require_logging(_evaluate),
                     models=models[i::max_workers],
                     cases=cases,
-                    delay=delay,
-                    output_dir=output_dir,
+                    **params,
                 )
                 for i in range(max_workers)
             ]
             for task in as_completed(tasks):
                 scores += task.result()
     else:
-        scores = _evaluate(
-            models=models, cases=cases, delay=delay, output_dir=output_dir
-        )
+        scores = _evaluate(models=models, cases=cases, **params)
 
     dump_csv(
         filename=report_filename,

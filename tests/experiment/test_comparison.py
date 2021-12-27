@@ -12,31 +12,31 @@ from srca.model.case import Case
 from srca.model.case import CaseData
 
 
-def test_logging(case_data: CaseData, tempdir: str, capfd: pytest.CaptureFixture):
+@pytest.mark.parametrize(("max_workers",), [(1,), (2,)])
+def test_logging(
+    max_workers: int, case_data: CaseData, tempdir: str, capfd: pytest.CaptureFixture
+):
     """
     The forked process shall have the same logging level as the main one
     """
     report_filename = os.path.join(tempdir, "report.csv")
-    models, _ = get_models()
+    models, graph_factories = get_models()
     cases = [Case(data=case_data, answer={case_data.sla})]
-    delay, max_workers = 60, 2
+    delay = 60
 
-    logging.basicConfig(level=logging.WARNING)
-    run(
+    params = dict(
         models=models[:5],
         cases=cases,
+        graph_factories=dict(list(graph_factories.items())[:5]),
+        output_dir=tempdir,
         delay=delay,
         max_workers=max_workers,
         report_filename=report_filename,
     )
+    logging.basicConfig(level=logging.WARNING, force=True)
+    run(**params)
     assert "INFO:srca" not in capfd.readouterr().err
 
     logging.basicConfig(level=logging.INFO, force=True)
-    run(
-        models=models[:5],
-        cases=cases,
-        delay=delay,
-        max_workers=max_workers,
-        report_filename=report_filename,
-    )
+    run(**params)
     assert "INFO:srca" in capfd.readouterr().err

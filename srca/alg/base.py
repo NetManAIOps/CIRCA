@@ -109,6 +109,11 @@ class GraphFactory(ABC):
     def load(filename: str) -> Union[Graph, None]:
         """
         Load a graph from the given file
+
+        Returns:
+        - A graph, if available
+        - None, if dump/load is not supported
+        - Raise LoadingInvalidGraphException if the file cannot be parsed
         """
         return MemoryGraph.load(filename)
 

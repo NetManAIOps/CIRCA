@@ -20,8 +20,10 @@ from .base import Scorer
 from ..model.case import Case
 from ..model.case import CaseData
 from ..model.graph import Graph
+from ..model.graph import LoadingInvalidGraphException
 from ..model.graph import MemoryGraph
 from ..model.graph import Node
+from ..utils import Timeout
 from ..utils import dump_json
 from ..utils import load_json
 
@@ -202,7 +204,6 @@ class Model:
                 graph = self._graph_factory.load(graph_filename)
             if graph is None:
                 graph = self._graph_factory.create(data=data, current=current)
-                graph.dump(graph_filename)
         else:
             graph = self._graph_factory.create(data=data, current=current)
 
@@ -278,6 +279,7 @@ def evaluate(
     cases: Sequence[Case],
     delay: int = 300,
     output_dir: str = None,
+    timeout: int = 3600,
 ) -> Evaluation:
     """
     Evaluate the composition of Scorers
@@ -285,7 +287,9 @@ def evaluate(
     delay: the expected interval in seconds to conduct root cause analysis
         after the case is detected
     """
-    logger = logging.getLogger(f"{evaluate.__module__}.{evaluate.__name__}")
+    logger = logging.getLogger(
+        ".".join([evaluate.__module__, evaluate.__name__, model.name])
+    )
     report = Evaluation()
     if output_dir is not None:
         output_filename = os.path.join(output_dir, f"{model.name}.json")
@@ -299,11 +303,16 @@ def evaluate(
         if output_dir is not None:
             case_output_dir = os.path.join(output_dir, str(index))
             os.makedirs(case_output_dir, exist_ok=True)
-        ranks = model.analyze(
-            data=case.data,
-            current=case.data.detect_time + delay,
-            output_dir=case_output_dir,
-        )
+        try:
+            with Timeout(seconds=timeout):
+                ranks = model.analyze(
+                    data=case.data,
+                    current=case.data.detect_time + delay,
+                    output_dir=case_output_dir,
+                )
+        except (LoadingInvalidGraphException, TimeoutError):
+            logger.warning("Timeout for case %d", index)
+            ranks = []
         report(ranks=[node for node, _ in ranks], answers=case.answer)
     if output_dir is not None:
         report.dump(output_filename)

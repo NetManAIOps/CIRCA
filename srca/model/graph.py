@@ -54,6 +54,12 @@ class Node:
         return f"Node{(self.entity, self.metric)}"
 
 
+class LoadingInvalidGraphException(Exception):
+    """
+    This exception indicates that Graph tries to load from a broken file
+    """
+
+
 class Graph(ABC):
     """
     The abstract interface to access relations
@@ -77,6 +83,11 @@ class Graph(ABC):
         # pylint: disable=unused-argument
         """
         Load a graph from the given file
+
+        Returns:
+        - A graph, if available
+        - None, if dump/load is not supported
+        - Raise LoadingInvalidGraphException if the file cannot be parsed
         """
         return None
 
@@ -152,6 +163,8 @@ class MemoryGraph(Graph):
     @classmethod
     def load(cls, filename: str) -> Union["MemoryGraph", None]:
         data: dict = load_json(filename=filename)
+        if "nodes" not in data or "edges" not in data:
+            raise LoadingInvalidGraphException(filename)
         nodes: List[Node] = [Node(**node) for node in data["nodes"]]
         graph = nx.DiGraph()
         graph.add_nodes_from(nodes)
