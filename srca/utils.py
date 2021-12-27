@@ -5,11 +5,18 @@ import csv
 import datetime
 import json
 import logging
+import signal
 from typing import Callable
 from typing import Sequence
 from typing import TypeVar
+import warnings
 
 
+try:
+    _ = signal.SIGALRM
+    _HAS_SIGALRM = True
+except AttributeError:
+    _HAS_SIGALRM = False
 _Template = TypeVar("_Template")
 
 ENCODING = "UTF-8"
@@ -75,6 +82,44 @@ class Timer:
         self._logger.info(
             "Duration of %s: %.6f", self._name, self.duration.total_seconds()
         )
+
+
+class Timeout:
+    """
+    Control execution duration as a context manager
+
+    Stolen from the following answer, which is under the "CC BY-SA 4.0" license
+    https://stackoverflow.com/a/39773925
+
+    Exemples:
+    >>> import time
+    >>> with Timeout(seconds=3):
+    ...     time.sleep(4)
+    Traceback (most recent call last):
+        ...
+    TimeoutError
+    """
+
+    def __init__(self, seconds: int = 0):
+        if not _HAS_SIGALRM:
+            warnings.warn(
+                "signal.SIGALRM is not supported and "
+                f"{Timeout.__module__}.{Timeout.__name__} cannot work"
+            )
+        self._seconds = int(seconds)
+
+    def _handle_timeout(self, *_):
+        # pylint: disable=no-self-use
+        raise TimeoutError
+
+    def __enter__(self):
+        if _HAS_SIGALRM:
+            signal.signal(signal.SIGALRM, self._handle_timeout)
+            signal.alarm(self._seconds)
+
+    def __exit__(self, *_):
+        if _HAS_SIGALRM:
+            signal.alarm(0)
 
 
 def dump_csv(filename: str, data: Sequence[Sequence], headers: Sequence[str] = None):
