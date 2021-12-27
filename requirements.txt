@@ -8,3 +8,4 @@ rpy2
 scipy
 scikit-learn
 tigramite
+torch
