@@ -1,3 +1,3 @@
 [run]
-command_line=-m pytest
+command_line=-m pytest --doctest-modules srca/ tests/
 source=srca/

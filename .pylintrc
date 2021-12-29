@@ -4,3 +4,6 @@ disable=too-few-public-methods
 [SIMILARITIES]
 ignore-imports=yes
 ignore-signatures=yes
+
+[TYPECHECK]
+generated-members=torch.*
