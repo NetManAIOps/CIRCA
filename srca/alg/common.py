@@ -5,6 +5,7 @@ import logging
 from multiprocessing import Process
 from multiprocessing import Queue
 import os
+import queue
 from typing import Dict
 from typing import List
 from typing import Sequence
@@ -276,7 +277,9 @@ class Evaluation:
         return sum(self.accuracy(i) for i in range(1, k + 1)) / k
 
 
-def _analyze(queue: Queue, model: Model, case: Case, current: float, output_dir: str):
+def _analyze(
+    consumer: Queue, model: Model, case: Case, current: float, output_dir: str
+):
     try:
         ranks = model.analyze(
             data=case.data,
@@ -285,7 +288,7 @@ def _analyze(queue: Queue, model: Model, case: Case, current: float, output_dir:
         )
     except LoadingInvalidGraphException:
         ranks = []
-    queue.put(ranks)
+    consumer.put(ranks)
 
 
 def evaluate(
@@ -318,11 +321,11 @@ def evaluate(
         if output_dir is not None:
             case_output_dir = os.path.join(output_dir, str(index))
 
-        queue = Queue()
+        consumer = Queue()
         task = Process(
             target=require_logging(_analyze),
             kwargs=dict(
-                queue=queue,
+                consumer=consumer,
                 model=model,
                 case=case,
                 current=case.data.detect_time + delay,
@@ -336,7 +339,11 @@ def evaluate(
             logger.warning("Timeout for case %d", index)
             ranks = []
         else:
-            ranks = queue.get()
+            try:
+                ranks = consumer.get(timeout=10)
+            except queue.Empty:
+                logger.warning("Unexpected termination for case %d", index)
+                ranks = []
         report(ranks=[node for node, _ in ranks], answers=case.answer)
     if output_dir is not None:
         report.dump(output_filename)
