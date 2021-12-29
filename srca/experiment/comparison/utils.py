@@ -1,27 +1,16 @@
 """
 Utilities
 """
-from itertools import chain
-from itertools import product
+from abc import ABC
+import dataclasses
+from enum import Enum
+import json
+from textwrap import indent
 from typing import Dict
 from typing import Iterable
-from typing import List
 from typing import Tuple
-
-from ...alg.base import GraphFactory
-from ...alg.base import Scorer
-from ...alg.common import EmptyGraphFactory
-from ...alg.common import Model
-from ...alg.common import NSigmaScorer
-from ...alg.correlation import CorrelationScorer
-from ...alg.correlation import PartialCorrelationScorer
-from ...alg.dfs import DFSScorer
-from ...alg.dfs import MicroHECLScorer
-from ...alg.evt import SPOTScorer
-from ...alg.graph.pcts import PCTSFactory
-from ...alg.graph.r import PCAlgFactory
-from ...alg.random_walk import RandomWalkScorer
-from ...alg.random_walk import SecondOrderRandomWalkScorer
+from typing import Type
+from typing import Union
 
 
 _ALPHAS = (0.01, 0.05, 0.1, 0.5)
@@ -33,223 +22,251 @@ _ZERO_TO_ONE = (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 _TRUE_AND_FALSE = (True, False)
 
 
-def _require_iterable(item) -> Iterable:
-    if not isinstance(item, Iterable):
-        return [item]
-    return item
+class GraphMethod(Enum):
+    """Supported graph factories"""
+
+    PC_GAUSS = "PC-gauss"
+    PC_GSQ = "PC-gsq"
+    PCTS = "PCTS"
 
 
-def _get_graph_factories(seed: int, params: dict = None) -> Dict[str, GraphFactory]:
-    if params is None:
-        params = {}
-    alphas = _require_iterable(params.get("alpha", _ALPHAS))
-    max_conds_dims = _require_iterable(params.get("max_conds_dim", _MAX_CONDS_DIMS))
-    tau_maxs = _require_iterable(params.get("tau_maxs", _TAU_MAXS))
-    num_cores = params.get("num_cores", 1)
+class ADMethod(Enum):
+    """Supported anomaly detection scorers"""
 
-    graph_factories: Dict[str, GraphFactory] = {}
-    for alpha, max_conds_dim in product(alphas, max_conds_dims):
-        params = dict(alpha=alpha, seed=seed)
-        suffix = f"_a{alpha}"
-        if max_conds_dim is not None:
-            params["max_conds_dim"] = max_conds_dim
-            suffix += f"_m{max_conds_dim}"
-        graph_factories["PC_gauss" + suffix] = PCAlgFactory(
-            method="PC-gauss", num_cores=num_cores, **params
-        )
-        graph_factories["PC_gsq" + suffix] = PCAlgFactory(
-            method="PC-gsq", num_cores=num_cores, **params
-        )
-        for tau_max in tau_maxs:
-            graph_name = "PCTS" + suffix + f"_t{tau_max}"
-            graph_factories[graph_name] = PCTSFactory(tau_max=tau_max, **params)
-    return graph_factories
+    NSIGMA = "NSigma"
+    SPOT = "SPOT"
 
 
-def _get_detectors(
-    params: dict = None, **scorer_params
-) -> Dict[str, Tuple[Scorer, float]]:
-    """
-    Map a detector name to a pair of Scorer and threshold
-    """
-    if params is None:
-        params = {}
-    risks = _require_iterable(params.get("risk", _RISKS))
+class DFSMethod(Enum):
+    """Supported DFS-based scorers"""
 
-    detectors: Dict[str, Tuple[Scorer, float]] = {
-        "NSigma": (NSigmaScorer(**scorer_params), 3),
-    }
-    for risk in risks:
-        detectors[f"SPOT_p{risk}"] = (SPOTScorer(proba=risk, **scorer_params), 0)
-    return detectors
+    DFS = "DFS"
+    MICRO_SCOPE = "Microscope"
+    MICRO_HECL = "MicroHECL"
 
 
-def _get_anomaly_detection_models(
-    detectors: Dict[str, Tuple[Scorer, float]]
-) -> List[Model]:
-    graph_factory = EmptyGraphFactory()
-    return [
-        Model(
-            graph_factory=graph_factory,
-            scorers=[
-                detector,
-            ],
-            names=("Empty", name),
-        )
-        for name, (detector, _) in detectors.items()
-    ]
+class RandomWalkMethod(Enum):
+    """Supported random walk-based scorers"""
+
+    MICRO_CAUSE = "MicroCause"
+    CLOUD_RANGER = "CloudRanger"
 
 
-def _get_dfs_models(
-    graph_factories: Dict[str, GraphFactory],
-    detectors: Dict[str, Tuple[Scorer, float]],
-    params: dict = None,
-    **scorer_params,
-) -> List[Model]:
-    if params is None:
-        params = {}
-    stop_thresholds = _require_iterable(params.get("stop_threshold", _ZERO_TO_ONE))
+class OtherMethod(Enum):
+    """Supported other scorers"""
 
-    models: List[Model] = []
-    # DFS
-    for detector_name, (detector, anomaly_threshold) in detectors.items():
-        scorer = DFSScorer(anomaly_threshold=anomaly_threshold, **scorer_params)
-        scorer_name = f"DFS_a{anomaly_threshold}"
-        for graph_name, graph_factory in graph_factories.items():
-            models.append(
-                Model(
-                    graph_factory=graph_factory,
-                    scorers=[detector, scorer],
-                    names=[graph_name, detector_name, scorer_name],
-                ),
+    CRD = "CRD"
+
+
+GRAPH_METHODS, AD_METHODS, DFS_METHODS, RANDOM_WALK_METHODS, OTHER_METHODS = (
+    tuple(method.value for method in methods)
+    for methods in (
+        GraphMethod,
+        ADMethod,
+        DFSMethod,
+        RandomWalkMethod,
+        OtherMethod,
+    )
+)
+
+
+@dataclasses.dataclass
+class Params(ABC):
+    """Parameter template"""
+
+    METHOD = Enum
+
+    method: Tuple[Enum] = dataclasses.field(default=())
+
+    def __post_init__(self):
+        if self.__class__ is Params:
+            raise self._prohibit_instantiate()
+        for field in dataclasses.fields(self):
+            value = getattr(self, field.name)
+            if field.metadata.get("iterable", True) and (
+                isinstance(value, str) or not isinstance(value, Iterable)
+            ):
+                value = [value]
+            if field.name == "method":
+                value = [self.METHOD(item) for item in value]
+            setattr(self, field.name, value)
+
+    @classmethod
+    def _prohibit_instantiate(cls):
+        return TypeError(f"Can't instantiate abstract class {cls.__name__}")
+
+    @classmethod
+    def field_doc(cls, field: dataclasses.Field) -> str:
+        """
+        Generate doc string for Field
+
+        >>> from dataclasses import field
+        >>> age: int = field(default=1, metadata={"help": "example"})
+        >>> age.name = "age"
+        >>> Params.field_doc(age)
+        'age: example. [Default: 1]'
+        """
+        if isinstance(field.type, type) and issubclass(field.type, cls):
+            return "\n".join(
+                [
+                    f"{field.name}: {field.type.__doc__}",
+                    indent(cls.dataclass_doc(field.type), " " * 2),
+                ]
             )
-            # Microscope in ICSOC'18
-            models.append(
-                Model(
-                    graph_factory=graph_factory,
-                    scorers=[detector, scorer, CorrelationScorer(**scorer_params)],
-                    names=[graph_name, detector_name, scorer_name, "Pearson"],
-                ),
-            )
-    # MicroHECL
-    for detector_name, (detector, anomaly_threshold) in detectors.items():
-        scorers = {
-            f"MicroHECL_a{anomaly_threshold}_s{stop_threshold}": MicroHECLScorer(
-                anomaly_threshold=anomaly_threshold,
-                stop_threshold=stop_threshold,
-                **scorer_params,
-            )
-            for stop_threshold in stop_thresholds
-        }
-        for graph_name, graph_factory in graph_factories.items():
-            for scorer_name, scorer in scorers.items():
-                models.append(
-                    Model(
-                        graph_factory=graph_factory,
-                        scorers=[detector, scorer],
-                        names=[graph_name, detector_name, scorer_name],
-                    ),
-                )
-    return models
+        help_message = field.metadata.get("help")
+        if help_message:
+            return f"{field.name}: {help_message}. [Default: {field.default}]"
+        return f"{field.name}: [Default: {field.default}]"
 
+    @classmethod
+    def dataclass_doc(cls, obj: Type[object]) -> str:
+        """
+        Generate doc string for a class wrapped by dataclass
 
-def _get_random_walk_models(
-    graph_factories: Dict[str, GraphFactory], params: dict = None, **scorer_params
-) -> List[Model]:
-    if params is None:
-        params = {}
-    rhos = _require_iterable(params.get("rho", _ZERO_TO_ONE))
-    remove_slas = _require_iterable(params.get("remove_sla", _TRUE_AND_FALSE))
-    betas = _require_iterable(params.get("beta", _ZERO_TO_ONE))
-
-    models: List[Model] = []
-    for rho, remove_sla in product(rhos, remove_slas):
-        params = dict(rho=rho, remove_sla=remove_sla, **scorer_params)
-        suffix = f"_r{rho}"
-        if remove_sla:
-            suffix += "_nosla"
-        for graph_name, graph_factory in graph_factories.items():
-            # MicroCause
-            models.append(
-                Model(
-                    graph_factory=graph_factory,
-                    scorers=[
-                        PartialCorrelationScorer(**scorer_params),
-                        RandomWalkScorer(**params),
-                    ],
-                    names=[graph_name, "PartialCorrelation", "RW" + suffix],
-                ),
-            )
-            # CloudRanger
-            for beta in betas:
-                models.append(
-                    Model(
-                        graph_factory=graph_factory,
-                        scorers=[
-                            CorrelationScorer(**scorer_params),
-                            SecondOrderRandomWalkScorer(beta=beta, **params),
-                        ],
-                        names=[
-                            graph_name,
-                            "Pearson",
-                            "RW_2" + suffix + f"_b{beta}",
-                        ],
-                    ),
-                )
-    return models
-
-
-def get_models(
-    graph_factories: Dict[str, GraphFactory] = None,
-    params: Dict[str, dict] = None,
-    seed: int = 0,
-) -> Tuple[List[Model], Dict[str, GraphFactory]]:
-    """
-    Prepare algorithm candidates
-
-    Parameters:
-        graph_factories: Specify GraphFactory for models
-        params: Specify options for model parameters.
-                Values that are not interable will be converted into a list.
-            graph: Graph parameters
-                alpha: Thresholds for p-value. Default: (0.01, 0.05, 0.1, 0.5)
-                max_conds_dim: The maximum size of condition set for PC and PCTS.
-                    Default: (2, 3, 5, 10, None)
-                tau_max: The maximum lag considered by PCTS. Default: (0, 1, 2, 3)
-                num_cores: The number of cores to be used for parallel estimation of
-                    skeleton for PC. num_cores shall be an integer. Default: 1
-            ad: Anomaly detection parameters
-                risk: The probability of risk for SPOT. Default: (1e-2, 1e-3, 1e-4)
-            dfs: DFS parameters
-                stop_threshold: Threshold for MicroHECL. Default: (0.0, 0.1, ..., 1.0)
-            rw: Random walk parameters
-                rho: Back-ward probability. Default: (0.0, 0.1, ..., 1.0)
-                remove_sla: Whether to disable forwarding to the SLA.
-                    Default: (True, False)
-                beta: For second order random walk. Default: (0.0, 0.1, ..., 1.0)
-    """
-    if params is None:
-        params = {}
-
-    scorer_params = dict(seed=seed)
-    if graph_factories is None:
-        graph_factories = _get_graph_factories(seed=seed, params=params.get("graph"))
-    detectors = _get_detectors(params=params.get("ad"), **scorer_params)
-    models = list(
-        chain(
-            _get_anomaly_detection_models(detectors),
-            _get_dfs_models(
-                graph_factories=graph_factories,
-                detectors=detectors,
-                params=params.get("dfs"),
-                **scorer_params,
-            ),
-            _get_random_walk_models(
-                graph_factories=graph_factories,
-                params=params.get("rw"),
-                **scorer_params,
-            ),
+        >>> Params.dataclass_doc(Params)
+        '- method: [Default: ()]'
+        """
+        return "\n".join(
+            [f"- {cls.field_doc(field)}" for field in dataclasses.fields(obj)]
         )
+
+
+@dataclasses.dataclass
+class GraphParams(Params):
+    """Parameters for graph factories"""
+
+    METHOD = GraphMethod
+
+    method: Tuple[GraphMethod] = dataclasses.field(default=GRAPH_METHODS)
+    alpha: Tuple[float, ...] = dataclasses.field(
+        default=_ALPHAS, metadata={"help": "Thresholds for p-value"}
+    )
+    max_conds_dim: Tuple[float, ...] = dataclasses.field(
+        default=_MAX_CONDS_DIMS,
+        metadata={"help": "The maximum size of condition set for PC and PCTS"},
+    )
+    tau_max: Tuple[int, ...] = dataclasses.field(
+        default=_TAU_MAXS, metadata={"help": "The maximum lag considered by PCTS"}
+    )
+    num_cores: int = dataclasses.field(
+        default=1,
+        metadata={
+            "iterable": False,
+            "help": "The number of cores to be used for parallel estimation of skeleton"
+            " for PC num_cores shall be an integer",
+        },
     )
 
-    return models, graph_factories
+
+@dataclasses.dataclass
+class ScorerParams(Params):
+    """Parameters for scorer with an extra graph_method fields"""
+
+    graph: GraphParams = dataclasses.field(
+        default_factory=GraphParams, metadata={"iterable": False}
+    )
+
+    def __post_init__(self):
+        if self.__class__ is ScorerParams:
+            raise self._prohibit_instantiate()
+        if isinstance(self.graph, dict):
+            self.graph = GraphParams(**self.graph)
+        super().__post_init__()
+
+
+@dataclasses.dataclass
+class ADParams(Params):
+    """Parameters for anomaly detection scorers"""
+
+    METHOD = ADMethod
+
+    method: Tuple[ADMethod] = dataclasses.field(default=AD_METHODS)
+    risk: Tuple[float, ...] = dataclasses.field(
+        default=_RISKS, metadata={"help": "The probability of risk for SPOT"}
+    )
+
+
+@dataclasses.dataclass
+class DFSParams(ScorerParams):
+    """Parameters for DFS-based scorers"""
+
+    METHOD = DFSMethod
+
+    method: Tuple[DFSMethod] = dataclasses.field(default=DFS_METHODS)
+    detector: ADParams = dataclasses.field(
+        default_factory=ADParams, metadata={"iterable": False}
+    )
+    stop_threshold: Tuple[float, ...] = dataclasses.field(
+        default=_ZERO_TO_ONE, metadata={"help": "Threshold for MicroHECL"}
+    )
+
+    def __post_init__(self):
+        if isinstance(self.detector, dict):
+            self.detector = ADParams(**self.detector)
+        super().__post_init__()
+
+
+@dataclasses.dataclass
+class RandomWalkParams(ScorerParams):
+    """Parameters for random walk-based scorers"""
+
+    METHOD = RandomWalkMethod
+
+    method: Tuple[RandomWalkMethod] = dataclasses.field(default=RANDOM_WALK_METHODS)
+    rho: Tuple[float, ...] = dataclasses.field(
+        default=_ZERO_TO_ONE, metadata={"help": "Back-ward probability"}
+    )
+    remove_sla: Tuple[bool, ...] = dataclasses.field(
+        default=_TRUE_AND_FALSE,
+        metadata={"help": "Whether to disable forwarding to the SLA"},
+    )
+    beta: Tuple[float, ...] = dataclasses.field(
+        default=_ZERO_TO_ONE, metadata={"help": "For second order random walk"}
+    )
+
+
+@dataclasses.dataclass
+class OtherParams(ScorerParams):
+    """Parameters for other scorers"""
+
+    METHOD = OtherMethod
+
+    method: Tuple[OtherMethod] = dataclasses.field(default=OTHER_METHODS)
+
+
+@dataclasses.dataclass
+class ModelParams:
+    """
+    Specify model parameters
+    """
+
+    anomaly_detection: ADParams = dataclasses.field()
+    dfs: DFSParams = dataclasses.field()
+    random_walk: RandomWalkParams = dataclasses.field()
+    other: OtherParams = dataclasses.field()
+
+    def __init__(self, params: Union[Dict[str, dict], str] = None):
+        """
+        params shall be dict. The output of json by dumping the dict is also accepted.
+        """
+        if params is None:
+            params = {}
+        elif isinstance(params, str):
+            params = json.loads(params)
+        if not isinstance(params, dict):
+            raise ValueError(
+                f"ModelParams requires dict or json dict, not {type(params)}"
+            )
+        for key, value in params.items():
+            if not isinstance(value, dict):
+                raise ValueError(
+                    f"ModelParams requires dict for {key}, not {type(value)}"
+                )
+
+        for field in dataclasses.fields(self):
+            setattr(self, field.name, field.type(**params.get(field.name, {})))
+
+
+ModelParams.__init__.__doc__ += indent(
+    "\n".join(["\nParameters:\n", Params.dataclass_doc(ModelParams)]), " " * 8
+)

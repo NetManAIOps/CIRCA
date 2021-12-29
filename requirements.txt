@@ -1,5 +1,6 @@
 ads-evt
 bayesian-changepoint-detection
+dataclasses
 networkx
 numpy
 pandas

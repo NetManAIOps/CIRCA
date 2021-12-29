@@ -7,7 +7,7 @@ import os
 import pytest
 
 from srca.experiment.comparison import run
-from srca.experiment.comparison.utils import get_models
+from srca.experiment.comparison.models import get_models
 from srca.model.case import Case
 from srca.model.case import CaseData
 
