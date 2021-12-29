@@ -160,7 +160,7 @@ class GraphParams(Params):
 
 @dataclasses.dataclass
 class ScorerParams(Params):
-    """Parameters for scorer with an extra graph_method fields"""
+    """Parameters for scorer with an extra graph fields"""
 
     graph: GraphParams = dataclasses.field(
         default_factory=GraphParams, metadata={"iterable": False}

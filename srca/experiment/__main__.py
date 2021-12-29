@@ -94,7 +94,7 @@ def _run(args: argparse.Namespace):
                 models=models,
                 cases=dataset.cases,
                 graph_factories=None,
-                output_dir=None,
+                output_dir=os.path.join(args.output_dir, str(num_node), str(i)),
                 report_filename=os.path.join(report_dir, f"report-{num_node}-{i}.csv"),
                 max_workers=1,
             )
@@ -207,5 +207,4 @@ def _main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     _main()

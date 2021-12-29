@@ -310,13 +310,13 @@ def evaluate(
         if os.path.exists(output_filename):
             report.load(output_filename, [case.answer for case in cases])
             return report
+        os.makedirs(output_dir, exist_ok=True)
 
     for index, case in enumerate(cases):
         logger.debug("Analyze case %d", index)
         case_output_dir = None
         if output_dir is not None:
             case_output_dir = os.path.join(output_dir, str(index))
-            os.makedirs(case_output_dir, exist_ok=True)
 
         queue = Queue()
         task = Process(
