@@ -61,7 +61,7 @@ class DFSScorer(Scorer):
                     roots.add(node)
             layer = next_layer
 
-        return {node: scores[node] for node in roots}
+        return {node: scores[node] for node in roots if node in scores}
 
 
 class MicroHECLScorer(DFSScorer):
