@@ -8,6 +8,7 @@ from typing import Set
 
 import networkx as nx
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 from ..alg.common import StaticGraphFactory
 from ..model.case import Case
@@ -206,13 +207,13 @@ def generate_sedag(
             weight = rng.standard_normal()
             matrix[result, cause] = np.sign(weight) * (abs(weight) + minimum)
             num_edge -= 1
-    matrix /= np.sqrt(num_node)
     return matrix
 
 
 def generate_case(
     weight: np.ndarray,
     length_normal: int = 1440,
+    fault_duration: int = 2,
     length_abnormal: int = 10,
     beta: float = 1e-1,
     tau: float = 3,
@@ -229,9 +230,10 @@ def generate_case(
     """
     if rng is None:
         rng = np.random.default_rng()
+    length_abnormal = max(length_abnormal, fault_duration)
 
     num_node, _ = weight.shape
-    data = np.zeros((0, num_node))
+    data: np.ndarray = np.zeros((0, num_node))
     if sigmas is None:
         sigmas = rng.standard_exponential(num_node)
 
@@ -242,7 +244,7 @@ def generate_case(
     # where A^{(\prime)} = \sum_{i=0}^{num_node} A^{i}
     for _ in range(length_normal):
         values = weight @ (beta * values + rng.standard_normal(num_node) * sigmas)
-        data = np.append(data, [np.around(values, decimals=3)], axis=0)
+        data = np.append(data, [values], axis=0)
 
     sla_mean: float = data[:, _SLA].mean()
     sla_sigma: float = data[:, _SLA].std()
@@ -252,11 +254,11 @@ def generate_case(
         causes = rng.choice(num_node, size=num_causes, replace=False)
         fault = np.zeros(num_node)
         alpha = rng.standard_exponential(size=num_causes)
+        epsilon = rng.standard_normal(num_node)
         while True:
-            fault[causes] = alpha + tau
+            fault[causes] = alpha
             sla_value: float = np.dot(
-                weight[_SLA, :],
-                beta * values + (rng.standard_normal(num_node) + fault) * sigmas,
+                weight[_SLA, :], beta * values + (epsilon + fault) * sigmas
             )
             if abs(sla_value - sla_mean) > tau * sla_sigma:
                 break
@@ -266,11 +268,17 @@ def generate_case(
         assert causes.size
 
     # Faulty data
-    for _ in range(length_abnormal):
+    for _ in range(fault_duration):
         values = weight @ (
             beta * values + (rng.standard_normal(num_node) + fault) * sigmas
         )
-        data = np.append(data, [np.around(values, decimals=3)], axis=0)
+        data = np.append(data, [values], axis=0)
+    for _ in range(length_abnormal - fault_duration):
+        values = weight @ (beta * values + rng.standard_normal(num_node) * sigmas)
+        data = np.append(data, [values], axis=0)
+
+    scaler = StandardScaler().fit(data[:length_normal, :])
+    data = np.around(scaler.transform(data), decimals=3)
 
     return SimCase(data=data, causes=set(causes.tolist()), length_normal=length_normal)
 
