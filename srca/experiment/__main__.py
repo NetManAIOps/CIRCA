@@ -2,8 +2,12 @@
 Command line utilities
 """
 import argparse
+from dataclasses import asdict
+from enum import Enum
+import json
 import logging
 import os
+from typing import Any
 from typing import List
 from typing import Tuple
 
@@ -26,6 +30,21 @@ _NUM_GRAPHS = 10
 _DEFAULT_SEED = 519
 
 
+def _show_params(_: argparse.Namespace):
+    def _convert_value(obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        if isinstance(obj, (list, tuple)):
+            return list(map(_convert_value, obj))
+        return obj
+
+    def _enum2str(data: List[Tuple[str, Any]]) -> dict:
+        return {key: _convert_value(value) for key, value in data}
+
+    params = asdict(ModelParams(), dict_factory=_enum2str)
+    print(json.dumps(params, indent=2, ensure_ascii=False))
+
+
 def _generate(args: argparse.Namespace):
     num_nodes = set(args.num_nodes)
     rng = np.random.default_rng(args.seed)
@@ -33,7 +52,9 @@ def _generate(args: argparse.Namespace):
         if num_node not in num_nodes:
             continue
         for i in range(_NUM_GRAPHS):
-            dataset = generate(num_node=num_node, num_edge=num_edge, rng=rng)
+            dataset = generate(
+                num_node=num_node, num_edge=num_edge, num_cases=args.num_cases, rng=rng
+            )
             dataset.dump(os.path.join(args.output_dir, str(num_node), str(i)))
 
 
@@ -131,9 +152,20 @@ def _get_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(title="subcommands")
 
+    parser_show_params = subparsers.add_parser(
+        "params", help="Show default model parameters", **parser_params
+    )
+    parser_show_params.set_defaults(func=_show_params)
+
     # For data generation
     parser_gen = subparsers.add_parser(
         "generate", help="Generate dataset by simulation", **parser_params
+    )
+    parser_gen.add_argument(
+        "--num-cases",
+        type=int,
+        default=100,
+        help="The number of cases for each graph",
     )
     parser_gen.add_argument(
         "-n",
@@ -180,7 +212,7 @@ def _get_parser() -> argparse.ArgumentParser:
         "--model-params",
         type=ModelParams,
         required=False,
-        help="Specify options for model parameters.",
+        help="Provide a json file to specify options for model parameters.",
     )
     _add_output_argument(parser_run, default=os.path.join("output", "sim"))
     _add_report_argument(parser_run, default=os.path.join("report", "sim"))

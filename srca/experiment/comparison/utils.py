@@ -4,13 +4,14 @@ Utilities
 from abc import ABC
 import dataclasses
 from enum import Enum
-import json
 from textwrap import indent
 from typing import Dict
 from typing import Iterable
 from typing import Tuple
 from typing import Type
 from typing import Union
+
+from ...utils import load_json
 
 
 _ALPHAS = (0.01, 0.05, 0.1, 0.5)
@@ -247,12 +248,12 @@ class ModelParams:
 
     def __init__(self, params: Union[Dict[str, dict], str] = None):
         """
-        params shall be dict. The output of json by dumping the dict is also accepted.
+        params shall be dict. The name of a json file is also accepted.
         """
         if params is None:
             params = {}
         elif isinstance(params, str):
-            params = json.loads(params)
+            params = load_json(params)
         if not isinstance(params, dict):
             raise ValueError(
                 f"ModelParams requires dict or json dict, not {type(params)}"
