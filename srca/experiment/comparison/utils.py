@@ -56,7 +56,7 @@ class RandomWalkMethod(Enum):
 class OtherMethod(Enum):
     """Supported other scorers"""
 
-    CRD = "CRD"
+    ENMF = "ENMF"
 
 
 GRAPH_METHODS, AD_METHODS, DFS_METHODS, RANDOM_WALK_METHODS, OTHER_METHODS = (

@@ -15,7 +15,7 @@ from ...alg.common import Model
 from ...alg.common import NSigmaScorer
 from ...alg.correlation import CorrelationScorer
 from ...alg.correlation import PartialCorrelationScorer
-from ...alg.crd import CRDScorer
+from ...alg.invariant_network import ENMFScorer
 from ...alg.dfs import DFSScorer
 from ...alg.dfs import MicroHECLScorer
 from ...alg.evt import SPOTScorer
@@ -269,12 +269,12 @@ class OtherModelGetter(ModelGetter):
     ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
         models: List[Model] = []
 
-        if utils.OtherMethod.CRD in self._params.method:
+        if utils.OtherMethod.ENMF in self._params.method:
             models.append(
                 Model(
                     graph_factory=EmptyGraphFactory(),
-                    scorers=[CRDScorer(**scorer_params)],
-                    names=(EMPTY_GRAPH_NAME, "CRD"),
+                    scorers=[ENMFScorer(**scorer_params)],
+                    names=(EMPTY_GRAPH_NAME, "ENMF"),
                 )
             )
 

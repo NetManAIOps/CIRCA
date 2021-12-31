@@ -11,9 +11,11 @@ from srca.alg.common import Model
 from srca.alg.common import NSigmaScorer
 from srca.alg.correlation import CorrelationScorer
 from srca.alg.correlation import PartialCorrelationScorer
-from srca.alg.crd import CRDScorer
-from srca.alg.crd.crd import CRD
-from srca.alg.crd.crd import InvariantNetwork
+from srca.alg.invariant_network import CRDScorer
+from srca.alg.invariant_network import ENMFScorer
+from srca.alg.invariant_network.crd import CRD
+from srca.alg.invariant_network.enmf import ENMF
+from srca.alg.invariant_network.enmf import InvariantNetwork
 from srca.alg.dfs import DFSScorer
 from srca.alg.dfs import MicroHECLScorer
 from srca.alg.evt import SPOTScorer
@@ -32,12 +34,13 @@ from srca.model.case import CaseData
         (
             (
                 CRDScorer(
-                    crd_model=CRD(
+                    model=CRD(
                         epoches=10, invariant_network=InvariantNetwork(n=1, m=1)
                     )
                 ),
             ),
         ),
+        ((ENMFScorer(model=ENMF(invariant_network=InvariantNetwork(n=1, m=1))),),),
         ((PartialCorrelationScorer(), RandomWalkScorer()),),
         ((CorrelationScorer(), SecondOrderRandomWalkScorer()),),
     ],
