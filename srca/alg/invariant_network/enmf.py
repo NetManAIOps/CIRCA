@@ -10,6 +10,7 @@ from typing import Dict
 from typing import Tuple
 
 import numpy as np
+from scipy.special import softmax
 
 
 _ZERO = 1e-6
@@ -254,6 +255,24 @@ class ENMF:
         """
         return self._invariant_network.start
 
+    def _loss(
+        self,
+        broken: np.ndarray,
+        causes: np.ndarray,
+        status_scores: np.ndarray,
+        mask: np.ndarray,
+    ) -> Tuple[float, float]:
+        # Square of Frobenius norm
+        reconstruct_loss: float = (
+            np.linalg.norm(
+                mask * (status_scores @ status_scores.T) - broken,
+                ord="fro",
+            )
+            ** 2
+        )
+        loss: float = reconstruct_loss + self._tau * abs(causes).sum()
+        return loss, reconstruct_loss
+
     def enmf(
         self,
         invariant: np.ndarray,
@@ -295,16 +314,12 @@ class ENMF:
             causes = causes * ((numerator / denominator) ** 0.25)
             err: float = np.linalg.norm(causes - causes_old, ord="fro")
 
-            status_scores = _status_scores(causes)
-            # Square of Frobenius norm
-            reconstruct_loss: float = (
-                np.linalg.norm(
-                    mask * (status_scores @ status_scores.T) - broken,
-                    ord="fro",
-                )
-                ** 2
+            loss, reconstruct_loss = self._loss(
+                broken=broken,
+                causes=causes,
+                status_scores=_status_scores(causes),
+                mask=mask,
             )
-            loss: float = reconstruct_loss + self._tau * abs(causes).sum()
 
             self._logger.debug(
                 "Epoch of ENMF: %04d, loss: %06f, reconstruct_loss: %06f, change: %06f",
@@ -323,6 +338,11 @@ class ENMF:
         """
         self._invariant_network.fit(data)
 
+    def _rank(self, invariant: np.ndarray, broken: np.ndarray) -> np.ndarray:
+        causes = np.ones((invariant.shape[0], 1))
+        causes = self.enmf(invariant=invariant, broken=broken, causes=causes)
+        return causes[:, 0]
+
     def rank(self, data: np.ndarray, discrete: bool = True) -> np.ndarray:
         """
         Detect the broken network and rank nodes
@@ -335,6 +355,68 @@ class ENMF:
             return np.zeros(invariant.shape[0])
         broken = self._invariant_network.broken_matrix(data=data, discrete=discrete)
 
+        return self._rank(invariant=invariant, broken=broken)
+
+
+class ENMFSoft(ENMF):
+    """
+    ENMF with softmax normalization
+
+    ENMFSoft is edited based on the code[5] of Reference[1] in KDD'16
+
+    References:
+    [1] Ranking Causal Anomalies via Temporal and Dynamical Analysis on Vanishing
+        Correlations. https://doi.org/10.1145/2939672.2939765
+    [5] rankingCausal.zip:rankingCausal/optENMFSoft.m in
+        https://github.com/chengw07/CausalRanking
+    """
+
+    def _rank(self, invariant: np.ndarray, broken: np.ndarray) -> np.ndarray:
+        # pylint: disable=too-many-locals
+        # A: invariant network
+        # B: broken network
+        # e: causes
+        # H: propagation with r = H e, where r is the anomaly score vector
+        # H = (1 - c) (I_n - c \tilde{A})^{-1}
+        propagation: np.ndarray = (1 - self._gamma) * np.linalg.inv(
+            np.eye(invariant.shape[0]) - self._gamma * self.degree_normalize(invariant)
+        )
+        mask = invariant.astype(bool).astype(float)
+
         causes = np.ones((invariant.shape[0], 1))
-        causes = self.enmf(invariant=invariant, broken=broken, causes=causes)
+        status_scores = softmax(propagation @ causes)
+        loss, _ = self._loss(
+            broken=broken, causes=causes, status_scores=status_scores, mask=mask
+        )
+
+        for epoch in range(self._epoches):
+            loss_old = loss
+            status_scores: np.ndarray = softmax(propagation @ causes)
+            phi = np.diag(status_scores) - status_scores @ status_scores.T
+
+            numerator: np.ndarray = (
+                4 * (mask * (propagation.T @ phi @ broken)) @ status_scores
+            )
+            numerator[numerator < 0] = 0
+            denominator: np.ndarray = (
+                4
+                * (mask * (propagation.T @ phi @ status_scores @ status_scores.T))
+                @ status_scores
+                + self._tau
+            )
+            causes = causes * ((numerator / denominator) ** 0.25)
+            loss, reconstruct_loss = self._loss(
+                broken=broken, causes=causes, status_scores=status_scores, mask=mask
+            )
+            err = abs(loss - loss_old)
+
+            self._logger.debug(
+                "Epoch of ENMF: %04d, loss: %06f, reconstruct_loss: %06f, change: %06f",
+                epoch,
+                loss,
+                reconstruct_loss,
+                err,
+            )
+            if err < _ZERO:
+                break
         return causes[:, 0]

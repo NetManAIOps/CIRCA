@@ -15,6 +15,7 @@ from srca.alg.invariant_network import CRDScorer
 from srca.alg.invariant_network import ENMFScorer
 from srca.alg.invariant_network.crd import CRD
 from srca.alg.invariant_network.enmf import ENMF
+from srca.alg.invariant_network.enmf import ENMFSoft
 from srca.alg.invariant_network.enmf import InvariantNetwork
 from srca.alg.dfs import DFSScorer
 from srca.alg.dfs import MicroHECLScorer
@@ -34,13 +35,12 @@ from srca.model.case import CaseData
         (
             (
                 CRDScorer(
-                    model=CRD(
-                        epoches=10, invariant_network=InvariantNetwork(n=1, m=1)
-                    )
+                    model=CRD(epoches=10, invariant_network=InvariantNetwork(n=1, m=1))
                 ),
             ),
         ),
         ((ENMFScorer(model=ENMF(invariant_network=InvariantNetwork(n=1, m=1))),),),
+        ((ENMFScorer(model=ENMFSoft(invariant_network=InvariantNetwork(n=1, m=1))),),),
         ((PartialCorrelationScorer(), RandomWalkScorer()),),
         ((CorrelationScorer(), SecondOrderRandomWalkScorer()),),
     ],
