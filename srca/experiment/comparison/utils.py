@@ -23,7 +23,17 @@ _ZERO_TO_ONE = (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 _TRUE_AND_FALSE = (True, False)
 
 
-class GraphMethod(Enum):
+class _Method(Enum):
+    @classmethod
+    @property
+    def methods(cls):
+        """
+        List values
+        """
+        return tuple(method.value for method in cls)
+
+
+class GraphMethod(_Method):
     """Supported graph factories"""
 
     PC_GAUSS = "PC-gauss"
@@ -31,14 +41,14 @@ class GraphMethod(Enum):
     PCTS = "PCTS"
 
 
-class ADMethod(Enum):
+class ADMethod(_Method):
     """Supported anomaly detection scorers"""
 
     NSIGMA = "NSigma"
     SPOT = "SPOT"
 
 
-class DFSMethod(Enum):
+class DFSMethod(_Method):
     """Supported DFS-based scorers"""
 
     DFS = "DFS"
@@ -46,30 +56,18 @@ class DFSMethod(Enum):
     MICRO_HECL = "MicroHECL"
 
 
-class RandomWalkMethod(Enum):
+class RandomWalkMethod(_Method):
     """Supported random walk-based scorers"""
 
     MICRO_CAUSE = "MicroCause"
     CLOUD_RANGER = "CloudRanger"
 
 
-class InvariantNetworkMethod(Enum):
+class InvariantNetworkMethod(_Method):
     """Supported invariant network-based scorers"""
 
     CRD = "CRD"
     ENMF = "ENMF"
-
-
-GRAPH_METHODS, AD_METHODS, DFS_METHODS, RANDOM_WALK_METHODS, IN_METHODS = (
-    tuple(method.value for method in methods)
-    for methods in (
-        GraphMethod,
-        ADMethod,
-        DFSMethod,
-        RandomWalkMethod,
-        InvariantNetworkMethod,
-    )
-)
 
 
 @dataclasses.dataclass
@@ -139,7 +137,7 @@ class GraphParams(Params):
 
     METHOD = GraphMethod
 
-    method: Tuple[GraphMethod] = dataclasses.field(default=GRAPH_METHODS)
+    method: Tuple[GraphMethod] = dataclasses.field(default=GraphMethod.methods)
     alpha: Tuple[float, ...] = dataclasses.field(
         default=_ALPHAS, metadata={"help": "Thresholds for p-value"}
     )
@@ -182,7 +180,7 @@ class ADParams(Params):
 
     METHOD = ADMethod
 
-    method: Tuple[ADMethod] = dataclasses.field(default=AD_METHODS)
+    method: Tuple[ADMethod] = dataclasses.field(default=ADMethod.methods)
     risk: Tuple[float, ...] = dataclasses.field(
         default=_RISKS, metadata={"help": "The probability of risk for SPOT"}
     )
@@ -194,7 +192,7 @@ class DFSParams(ScorerParams):
 
     METHOD = DFSMethod
 
-    method: Tuple[DFSMethod] = dataclasses.field(default=DFS_METHODS)
+    method: Tuple[DFSMethod] = dataclasses.field(default=DFSMethod.methods)
     detector: ADParams = dataclasses.field(
         default_factory=ADParams, metadata={"iterable": False}
     )
@@ -214,13 +212,11 @@ class RandomWalkParams(ScorerParams):
 
     METHOD = RandomWalkMethod
 
-    method: Tuple[RandomWalkMethod] = dataclasses.field(default=RANDOM_WALK_METHODS)
+    method: Tuple[RandomWalkMethod] = dataclasses.field(
+        default=RandomWalkMethod.methods
+    )
     rho: Tuple[float, ...] = dataclasses.field(
         default=_ZERO_TO_ONE, metadata={"help": "Back-ward probability"}
-    )
-    remove_sla: Tuple[bool, ...] = dataclasses.field(
-        default=_TRUE_AND_FALSE,
-        metadata={"help": "Whether to disable forwarding to the SLA"},
     )
     beta: Tuple[float, ...] = dataclasses.field(
         default=_ZERO_TO_ONE, metadata={"help": "For second order random walk"}
@@ -234,7 +230,9 @@ class InvariantNetworkParams(ScorerParams):
 
     METHOD = InvariantNetworkMethod
 
-    method: Tuple[InvariantNetworkMethod] = dataclasses.field(default=IN_METHODS)
+    method: Tuple[InvariantNetworkMethod] = dataclasses.field(
+        default=InvariantNetworkMethod.methods
+    )
     discrete: Tuple[bool, ...] = dataclasses.field(
         default=_TRUE_AND_FALSE,
         metadata={"help": "Whether to use binary or continous value for correlation"},

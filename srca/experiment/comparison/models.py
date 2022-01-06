@@ -158,8 +158,10 @@ class DFSModelGetter(ModelGetter):
         detectors = _get_detectors(params=self._params.detector, **scorer_params)
         model_base: List[Tuple[GraphFactory, Scorer, List[str], str, dict]] = []
         for detector_name, (detector, anomaly_threshold) in detectors.items():
-            params = dict(anomaly_threshold=anomaly_threshold, **scorer_params)
-            suffix = f"_a{anomaly_threshold}"
+            suffix, params = self.compose_parameters(
+                values=(anomaly_threshold,), names=("anomaly_threshold",), abbrs=("a",)
+            )
+            params.update(scorer_params)
             for graph_name, graph_factory in graph_factories.items():
                 model_base.append(
                     (
@@ -228,14 +230,11 @@ class RWModelGetter(ModelGetter):
                 graph_params=self._params.graph, **graph_factory_params
             )
         model_base: List[Tuple[GraphFactory, str, str, dict]] = []
-        for (
-            rho,
-            remove_sla,
-        ) in product(self._params.rho, self._params.remove_sla):
-            params = dict(rho=rho, remove_sla=remove_sla, **scorer_params)
-            suffix = f"_r{rho}"
-            if remove_sla:
-                suffix += "_nosla"
+        for rho in self._params.rho:
+            suffix, params = self.compose_parameters(
+                values=(rho,), names=("rho",), abbrs=("r",)
+            )
+            params.update(scorer_params)
             for graph_name, graph_factory in graph_factories.items():
                 model_base.append((graph_factory, graph_name, suffix, params))
         models: List[Model] = []
