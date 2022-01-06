@@ -24,6 +24,10 @@ from ...alg.graph.pcts import PCTSFactory
 from ...alg.graph.r import PCAlgFactory
 from ...alg.random_walk import RandomWalkScorer
 from ...alg.random_walk import SecondOrderRandomWalkScorer
+from ...alg.structural import StructuralRanker
+from ...alg.structural import StructuralScorer
+from ...alg.structural.base import DiscreteNSigmaScorer
+from ...alg.structural.graph import StructrualGraphFactory
 
 
 EMPTY_GRAPH_NAME = "Empty"
@@ -66,7 +70,9 @@ class ModelGetter(ABC):
         raise NotImplementedError
 
 
-def _get_graph_factories(graph_params: utils.GraphParams, seed: int):
+def _get_graph_factories(
+    graph_params: utils.GraphParams, seed: int, structural_graph_params: dict = None
+):
     pc_params: List[Tuple[str, dict]] = []
     for params in product(graph_params.alpha, graph_params.max_conds_dim):
         suffix, params = ModelGetter.compose_parameters(
@@ -91,6 +97,13 @@ def _get_graph_factories(graph_params: utils.GraphParams, seed: int):
             graph_factories["PCTS" + suffix + f"_t{tau_max}"] = PCTSFactory(
                 tau_max=tau_max, **params
             )
+    if (
+        utils.GraphMethod.STRUCTURAL in graph_params.method
+        and structural_graph_params is not None
+    ):
+        graph_factories["Structural"] = StructrualGraphFactory(
+            **structural_graph_params, seed=seed
+        )
 
     return graph_factories
 
@@ -106,6 +119,8 @@ def _get_detectors(params: utils.ADParams, **scorer_params):
     if utils.ADMethod.SPOT in params.method:
         for risk in params.risk:
             detectors[f"SPOT_p{risk}"] = (SPOTScorer(proba=risk, **scorer_params), 0)
+    if utils.ADMethod.DNSIGMA in params.method:
+        detectors["DiscreteNSigma"] = (DiscreteNSigmaScorer(**scorer_params), 3)
 
     return detectors
 
@@ -350,7 +365,66 @@ class INModelGetter(ModelGetter):
         return models, {}
 
 
+class StructuralModelGetter(ModelGetter):
+    """
+    Get structural models
+    """
+
+    def __init__(self, params: utils.StructuralParams):
+        self._params = params
+
+    def get(
+        self,
+        graph_factory_params: dict,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
+        if graph_factories is None:
+            graph_factories = _get_graph_factories(
+                graph_params=self._params.graph, **graph_factory_params
+            )
+        model_base: List[Tuple[GraphFactory, str, str, dict]] = []
+        for params in product(self._params.tau_max, self._params.use_discrete):
+            suffix, params = self.compose_parameters(
+                values=params,
+                names=(
+                    "tau_max",
+                    "use_discrete",
+                ),
+                abbrs=("t", "d"),
+            )
+            params.update(scorer_params)
+            for graph_name, graph_factory in graph_factories.items():
+                model_base.append((graph_factory, graph_name, suffix, params))
+        # The three-sigma rule of thumb, as use_confidence=False by default
+        threshold = 3
+        ranker = StructuralRanker(threshold=threshold)
+        models: List[Model] = []
+
+        if utils.StructuralMethod.SRCA in self._params.method:
+            for graph_factory, graph_name, suffix, params in model_base:
+                models.append(
+                    Model(
+                        graph_factory=graph_factory,
+                        scorers=[StructuralScorer(**params)],
+                        names=(graph_name, "Structural" + suffix),
+                    )
+                )
+        if utils.StructuralMethod.SRCA_DA in self._params.method:
+            for graph_factory, graph_name, suffix, params in model_base:
+                models.append(
+                    Model(
+                        graph_factory=graph_factory,
+                        scorers=[StructuralScorer(**params), ranker],
+                        names=(graph_name, "Structural" + suffix, "Structural"),
+                    )
+                )
+
+        return models, {}
+
+
 def get_models(
+    structural_graph_params: dict = None,
     graph_factories: Dict[str, GraphFactory] = None,
     params: utils.ModelParams = None,
     seed: int = 0,
@@ -366,7 +440,9 @@ def get_models(
     if params is None:
         params = utils.ModelParams()
 
-    graph_factory_params = dict(seed=seed)
+    graph_factory_params = dict(
+        structural_graph_params=structural_graph_params, seed=seed
+    )
     getter_params = dict(
         graph_factory_params=graph_factory_params,
         graph_factories=graph_factories,
@@ -378,6 +454,7 @@ def get_models(
         DFSModelGetter(params.dfs),
         RWModelGetter(params.random_walk),
         INModelGetter(params.invariant_network),
+        StructuralModelGetter(params.structural),
     ]
 
     models: List[Model] = []

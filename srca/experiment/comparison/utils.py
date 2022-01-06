@@ -38,12 +38,14 @@ class GraphMethod(_Method):
     PC_GAUSS = "PC-gauss"
     PC_GSQ = "PC-gsq"
     PCTS = "PCTS"
+    STRUCTURAL = "Structural"
 
 
 class ADMethod(_Method):
     """Supported anomaly detection scorers"""
 
     NSIGMA = "NSigma"
+    DNSIGMA = "DNSigma"
     SPOT = "SPOT"
 
 
@@ -67,6 +69,13 @@ class InvariantNetworkMethod(_Method):
 
     CRD = "CRD"
     ENMF = "ENMF"
+
+
+class StructuralMethod(_Method):
+    """Supported structural scorers"""
+
+    SRCA = "SRCA"
+    SRCA_DA = "SRCA-DA"
 
 
 @dataclasses.dataclass
@@ -223,7 +232,7 @@ class RandomWalkParams(ScorerParams):
 
 
 @dataclasses.dataclass
-class InvariantNetworkParams(ScorerParams):
+class InvariantNetworkParams(Params):
     # pylint: disable=too-many-instance-attributes
     """Parameters for invariant network-based scorers"""
 
@@ -271,6 +280,24 @@ class InvariantNetworkParams(ScorerParams):
 
 
 @dataclasses.dataclass
+class StructuralParams(ScorerParams):
+    """Parameters for structural scorers"""
+
+    METHOD = StructuralMethod
+
+    method: Tuple[StructuralMethod] = dataclasses.field(
+        default=StructuralMethod.methods()
+    )
+    tau_max: Tuple[int, ...] = dataclasses.field(
+        default=_TAU_MAXS, metadata={"help": "The maximum lag to be considered"}
+    )
+    use_discrete: Tuple[bool, ...] = dataclasses.field(
+        default=_TRUE_AND_FALSE,
+        metadata={"help": "Whether to use dzscore or zscore"},
+    )
+
+
+@dataclasses.dataclass
 class ModelParams:
     """
     Specify model parameters
@@ -280,6 +307,7 @@ class ModelParams:
     dfs: DFSParams = dataclasses.field()
     random_walk: RandomWalkParams = dataclasses.field()
     invariant_network: InvariantNetworkParams = dataclasses.field()
+    structural: StructuralParams = dataclasses.field()
 
     def __init__(self, params: Union[Dict[str, dict], str] = None):
         """
