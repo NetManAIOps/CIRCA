@@ -7,6 +7,7 @@ import os
 import pytest
 
 from srca.experiment.comparison import run
+from srca.experiment.comparison.models import ModelGetter
 from srca.experiment.comparison.models import get_models
 from srca.model.case import Case
 from srca.model.case import CaseData
@@ -40,3 +41,16 @@ def test_logging(
     logging.basicConfig(level=logging.INFO, force=True)
     run(**params)
     assert "INFO:srca" in capfd.readouterr().err
+
+
+def test_compose_parameters():
+    """
+    ModelGetter.compose_parameters shall generate a tuple of suffix and named parameters
+    """
+    suffix, params = ModelGetter.compose_parameters(
+        values=[None, False, True, 3],
+        names=["1", "2", "3", "4"],
+        abbrs=["a", "b", "c", "d"],
+    )
+    assert suffix == "_c_d3"
+    assert params == {"2": False, "3": True, "4": 3}

@@ -13,9 +13,6 @@ from srca.alg.correlation import CorrelationScorer
 from srca.alg.correlation import PartialCorrelationScorer
 from srca.alg.invariant_network import CRDScorer
 from srca.alg.invariant_network import ENMFScorer
-from srca.alg.invariant_network.crd import CRD
-from srca.alg.invariant_network.enmf import ENMF
-from srca.alg.invariant_network.enmf import ENMFSoft
 from srca.alg.invariant_network.enmf import InvariantNetwork
 from srca.alg.dfs import DFSScorer
 from srca.alg.dfs import MicroHECLScorer
@@ -25,6 +22,9 @@ from srca.alg.random_walk import SecondOrderRandomWalkScorer
 from srca.model.case import CaseData
 
 
+_in_params = dict(epoches=10, invariant_network=InvariantNetwork(n=1, m=1))
+
+
 @pytest.mark.parametrize(
     ("scorers",),
     [
@@ -32,15 +32,9 @@ from srca.model.case import CaseData
         ((NSigmaScorer(), MicroHECLScorer(anomaly_threshold=3, stop_threshold=0.7)),),
         ((NSigmaScorer(), DFSScorer(anomaly_threshold=3)),),
         ((SPOTScorer(proba=0.1),),),
-        (
-            (
-                CRDScorer(
-                    model=CRD(epoches=10, invariant_network=InvariantNetwork(n=1, m=1))
-                ),
-            ),
-        ),
-        ((ENMFScorer(model=ENMF(invariant_network=InvariantNetwork(n=1, m=1))),),),
-        ((ENMFScorer(model=ENMFSoft(invariant_network=InvariantNetwork(n=1, m=1))),),),
+        ((CRDScorer(model_params=_in_params),),),
+        ((ENMFScorer(model_params=_in_params, use_softmax=False),),),
+        ((ENMFScorer(model_params=_in_params, use_softmax=True),),),
         ((PartialCorrelationScorer(), RandomWalkScorer()),),
         ((CorrelationScorer(), SecondOrderRandomWalkScorer()),),
     ],

@@ -15,6 +15,7 @@ from ...alg.common import Model
 from ...alg.common import NSigmaScorer
 from ...alg.correlation import CorrelationScorer
 from ...alg.correlation import PartialCorrelationScorer
+from ...alg.invariant_network import CRDScorer
 from ...alg.invariant_network import ENMFScorer
 from ...alg.dfs import DFSScorer
 from ...alg.dfs import MicroHECLScorer
@@ -33,6 +34,26 @@ class ModelGetter(ABC):
     Abstract interface to get models
     """
 
+    @staticmethod
+    def compose_parameters(
+        values: tuple, names: tuple, abbrs: tuple
+    ) -> Tuple[str, dict]:
+        """
+        Wrap parameters as (suffix str and parameter dict)
+        """
+        suffix = ""
+        params = {}
+        for value, name, abbr in zip(values, names, abbrs):
+            if value is None:
+                continue
+            params[name] = value
+            if isinstance(value, bool):
+                if value:
+                    suffix += f"_{abbr}"
+            else:
+                suffix += f"_{abbr}{value}"
+        return (suffix, params)
+
     def get(
         self,
         graph_factory_params: dict,
@@ -47,12 +68,11 @@ class ModelGetter(ABC):
 
 def _get_graph_factories(graph_params: utils.GraphParams, seed: int):
     pc_params: List[Tuple[str, dict]] = []
-    for alpha, max_conds_dim in product(graph_params.alpha, graph_params.max_conds_dim):
-        params = dict(alpha=alpha, seed=seed)
-        suffix = f"_a{alpha}"
-        if max_conds_dim is not None:
-            params["max_conds_dim"] = max_conds_dim
-            suffix += f"_m{max_conds_dim}"
+    for params in product(graph_params.alpha, graph_params.max_conds_dim):
+        suffix, params = ModelGetter.compose_parameters(
+            values=params, names=("alpha", "max_conds_dim"), abbrs=("a", "m")
+        )
+        params["seed"] = seed
         pc_params.append((suffix, params))
     graph_factories: Dict[str, GraphFactory] = {}
 
@@ -253,12 +273,12 @@ class RWModelGetter(ModelGetter):
         return models, graph_factories
 
 
-class OtherModelGetter(ModelGetter):
+class INModelGetter(ModelGetter):
     """
-    Get other models
+    Get invariant network-based models
     """
 
-    def __init__(self, params: utils.OtherParams):
+    def __init__(self, params: utils.InvariantNetworkParams):
         self._params = params
 
     def get(
@@ -267,16 +287,66 @@ class OtherModelGetter(ModelGetter):
         graph_factories: Dict[str, GraphFactory] = None,
         **scorer_params,
     ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
+        base_params: List[Tuple[str, dict, bool]] = []
+        for discrete, *params in product(
+            self._params.discrete, self._params.gamma, self._params.tau
+        ):
+            suffix, params = self.compose_parameters(
+                values=params, names=("gamma", "tau"), abbrs=("c", "t")
+            )
+            if discrete:
+                suffix += "_d"
+            base_params.append((suffix, params, discrete))
         models: List[Model] = []
 
-        if utils.OtherMethod.ENMF in self._params.method:
-            models.append(
-                Model(
-                    graph_factory=EmptyGraphFactory(),
-                    scorers=[ENMFScorer(**scorer_params)],
-                    names=(EMPTY_GRAPH_NAME, "ENMF"),
+        if utils.InvariantNetworkMethod.ENMF in self._params.method:
+            for use_softmax, (suffix, params, discrete) in product(
+                self._params.use_softmax, base_params
+            ):
+                if use_softmax:
+                    suffix = "_soft" + suffix
+                models.append(
+                    Model(
+                        graph_factory=EmptyGraphFactory(),
+                        scorers=[
+                            ENMFScorer(
+                                model_params=params,
+                                use_softmax=use_softmax,
+                                discrete=discrete,
+                                **scorer_params,
+                            )
+                        ],
+                        names=(EMPTY_GRAPH_NAME, "ENMF" + suffix),
+                    )
                 )
-            )
+        if utils.InvariantNetworkMethod.CRD in self._params.method:
+            for crd_params in product(
+                self._params.num_cluster,
+                self._params.alpha,
+                self._params.beta,
+                self._params.learning_rate,
+            ):
+                crd_suffix, crd_params = self.compose_parameters(
+                    values=crd_params,
+                    names=("num_cluster", "alpha", "beta", "learning_rate"),
+                    abbrs=("nc", "a", "b", "lr"),
+                )
+                for suffix, params, discrete in base_params:
+                    suffix += crd_suffix
+                    params = {**crd_params, **params}
+                    models.append(
+                        Model(
+                            graph_factory=EmptyGraphFactory(),
+                            scorers=[
+                                CRDScorer(
+                                    model_params=params,
+                                    discrete=discrete,
+                                    **scorer_params,
+                                )
+                            ],
+                            names=(EMPTY_GRAPH_NAME, "CRD" + suffix),
+                        )
+                    )
 
         return models, {}
 
@@ -306,7 +376,7 @@ def get_models(
         ADModelGetter(params.anomaly_detection),
         DFSModelGetter(params.dfs),
         RWModelGetter(params.random_walk),
-        OtherModelGetter(params.other),
+        INModelGetter(params.invariant_network),
     ]
 
     models: List[Model] = []

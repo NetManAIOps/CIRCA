@@ -7,6 +7,7 @@ import numpy as np
 
 from .crd import CRD
 from .enmf import ENMF
+from .enmf import ENMFSoft
 from ..base import Score
 from ..base import Scorer
 from ...model.case import CaseData
@@ -19,9 +20,20 @@ class ENMFScorer(Scorer):
     Score based on the ENMF model
     """
 
-    def __init__(self, model: ENMF = None, discrete: bool = True, **kwargs):
+    def __init__(
+        self,
+        model_params: dict = None,
+        use_softmax: bool = False,
+        discrete: bool = True,
+        **kwargs
+    ):
         super().__init__(**kwargs)
-        self._model = ENMF() if model is None else model
+        if model_params is None:
+            model_params = {}
+        if use_softmax:
+            self._model = ENMFSoft(**model_params)
+        else:
+            self._model = ENMF(**model_params)
         self._discrete = discrete
 
     def score(
@@ -53,8 +65,9 @@ class CRDScorer(ENMFScorer):
     Score based on the CRD model
     """
 
-    def __init__(
-        self, model: CRD = None, discrete: bool = True, use_sgd: bool = False, **kwargs
-    ):
+    def __init__(self, model_params: dict = None, discrete: bool = True, **kwargs):
         super().__init__(discrete=discrete, **kwargs)
-        self._model = CRD(use_sgd=use_sgd, seed=self._seed) if model is None else model
+        if model_params is None:
+            model_params = {}
+        model_params = dict(seed=self._seed, **model_params)
+        self._model = CRD(**model_params)

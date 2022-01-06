@@ -53,20 +53,21 @@ class RandomWalkMethod(Enum):
     CLOUD_RANGER = "CloudRanger"
 
 
-class OtherMethod(Enum):
-    """Supported other scorers"""
+class InvariantNetworkMethod(Enum):
+    """Supported invariant network-based scorers"""
 
+    CRD = "CRD"
     ENMF = "ENMF"
 
 
-GRAPH_METHODS, AD_METHODS, DFS_METHODS, RANDOM_WALK_METHODS, OTHER_METHODS = (
+GRAPH_METHODS, AD_METHODS, DFS_METHODS, RANDOM_WALK_METHODS, IN_METHODS = (
     tuple(method.value for method in methods)
     for methods in (
         GraphMethod,
         ADMethod,
         DFSMethod,
         RandomWalkMethod,
-        OtherMethod,
+        InvariantNetworkMethod,
     )
 )
 
@@ -227,12 +228,49 @@ class RandomWalkParams(ScorerParams):
 
 
 @dataclasses.dataclass
-class OtherParams(ScorerParams):
-    """Parameters for other scorers"""
+class InvariantNetworkParams(ScorerParams):
+    # pylint: disable=too-many-instance-attributes
+    """Parameters for invariant network-based scorers"""
 
-    METHOD = OtherMethod
+    METHOD = InvariantNetworkMethod
 
-    method: Tuple[OtherMethod] = dataclasses.field(default=OTHER_METHODS)
+    method: Tuple[InvariantNetworkMethod] = dataclasses.field(default=IN_METHODS)
+    discrete: Tuple[bool, ...] = dataclasses.field(
+        default=_TRUE_AND_FALSE,
+        metadata={"help": "Whether to use binary or continous value for correlation"},
+    )
+    use_softmax: Tuple[bool, ...] = dataclasses.field(
+        default=_TRUE_AND_FALSE,
+        metadata={"help": "Whether to use confidence or anomaly score"},
+    )
+    gamma: Tuple[float, ...] = dataclasses.field(
+        default=(0.2, 0.5, 0.8),
+        metadata={
+            "help": "A parameter to balance "
+            "the award for neighboring nodes to have similar status scores, and"
+            "the penalty of large bias from the initial seeds"
+        },
+    )
+    tau: Tuple[float, ...] = dataclasses.field(
+        default=(0.1, 1),
+        metadata={"help": "A larger tau typically results in more zeros in e"},
+    )
+    num_cluster: Tuple[int, ...] = dataclasses.field(
+        default=(2, 3, 4, 5),
+        metadata={"help": "The number of clusters in an invariant network"},
+    )
+    alpha: Tuple[float, ...] = dataclasses.field(
+        default=(1.2, 1.5, 2),
+        metadata={"help": "A parameter in the Dirichlet distribution with alpha >= 1"},
+    )
+    beta: Tuple[float, ...] = dataclasses.field(
+        default=(0.1, 1, 10),
+        metadata={
+            "help": "A parameter to balance the object functions for network clustering"
+            "and broken score"
+        },
+    )
+    learning_rate: Tuple[float, ...] = dataclasses.field(default=(0.1, 1))
 
 
 @dataclasses.dataclass
@@ -244,7 +282,7 @@ class ModelParams:
     anomaly_detection: ADParams = dataclasses.field()
     dfs: DFSParams = dataclasses.field()
     random_walk: RandomWalkParams = dataclasses.field()
-    other: OtherParams = dataclasses.field()
+    invariant_network: InvariantNetworkParams = dataclasses.field()
 
     def __init__(self, params: Union[Dict[str, dict], str] = None):
         """
