@@ -1,6 +1,8 @@
 """
 Common utilities
 """
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import as_completed
 import logging
 from multiprocessing import Process
 from multiprocessing import Queue
@@ -100,6 +102,20 @@ class DecomposableScorer(Scorer):
         """
         raise NotImplementedError
 
+    def _score(
+        self,
+        candidates: Sequence[Node],
+        series: Dict[Node, Sequence[float]],
+        graph: Graph,
+        data: CaseData,
+    ):
+        results: Dict[Node, Score] = {}
+        for node in candidates:
+            score = self.score_node(graph, series, node, data)
+            if score is not None:
+                results[node] = score
+        return results
+
     def score(
         self,
         graph: Graph,
@@ -108,12 +124,28 @@ class DecomposableScorer(Scorer):
         scores: Dict[Node, Score] = None,
     ) -> Dict[Node, Score]:
         series = data.load_data(graph, current)
-        results: Dict[Node, Score] = {}
-        candidates = series.keys() if scores is None else scores.keys()
-        for node in candidates:
-            score = self.score_node(graph, series, node, data)
-            if score is not None:
-                results[node] = score
+        candidates = list(series.keys()) if scores is None else list(scores.keys())
+
+        if self._max_workers >= 2:
+            results: Dict[Node, Score] = {}
+            with ProcessPoolExecutor(max_workers=self._max_workers) as executor:
+                tasks = [
+                    executor.submit(
+                        require_logging(self._score),
+                        candidates=candidates[i :: self._max_workers],
+                        series=series,
+                        graph=graph,
+                        data=data,
+                    )
+                    for i in range(self._max_workers)
+                ]
+                for task in as_completed(tasks):
+                    results.update(task.result())
+        else:
+            results = self._score(
+                candidates=candidates, series=series, graph=graph, data=data
+            )
+
         if scores is None:
             return results
         return {node: scores[node].update(score) for node, score in results.items()}

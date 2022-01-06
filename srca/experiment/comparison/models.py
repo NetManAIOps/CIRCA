@@ -428,7 +428,7 @@ def get_models(
     graph_factories: Dict[str, GraphFactory] = None,
     params: utils.ModelParams = None,
     seed: int = 0,
-    cuda: bool = False,
+    **scorer_params,
 ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
     """
     Prepare algorithm candidates
@@ -447,7 +447,7 @@ def get_models(
         graph_factory_params=graph_factory_params,
         graph_factories=graph_factories,
         seed=seed,
-        cuda=cuda,
+        **scorer_params,
     )
     getters: List[ModelGetter] = [
         ADModelGetter(params.anomaly_detection),

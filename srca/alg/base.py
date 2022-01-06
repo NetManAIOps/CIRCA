@@ -132,10 +132,12 @@ class Scorer(ABC):
     def __init__(
         self,
         aggregator: Callable[[Sequence[float]], float] = max,
+        max_workers: int = 1,
         seed: int = 0,
         cuda: bool = False,
     ):
         self._aggregator = aggregator
+        self._max_workers = max_workers
         self._seed = seed
         self._cuda = cuda
 

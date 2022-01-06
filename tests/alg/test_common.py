@@ -7,6 +7,7 @@ from scipy.stats import pearsonr
 import pytest
 
 from srca.alg.base import GraphFactory
+from srca.alg.common import DecomposableScorer
 from srca.alg.common import Evaluation
 from srca.alg.common import Model
 from srca.alg.common import NSigmaScorer
@@ -14,7 +15,19 @@ from srca.alg.common import evaluate
 from srca.alg.common import pearson
 from srca.model.case import Case
 from srca.model.case import CaseData
+from srca.model.graph import Graph
 from srca.model.graph import Node
+
+
+def test_parallel_decomposable_scorer(graph: Graph, case_data: CaseData):
+    """
+    DecomposableScorer with multiple workers shall return the same as with a single one
+    """
+    assert issubclass(NSigmaScorer, DecomposableScorer)
+    params = dict(graph=graph, data=case_data, current=case_data.detect_time + 60)
+    result_single = NSigmaScorer(max_workers=1).score(**params)
+    result_multiple = NSigmaScorer(max_workers=2).score(**params)
+    assert result_single == result_multiple
 
 
 def test_pearson(size: int = 10):

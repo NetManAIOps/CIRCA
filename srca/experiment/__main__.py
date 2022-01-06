@@ -112,6 +112,7 @@ def _run(args: argparse.Namespace):
                 params=args.model_params,
                 seed=args.seed,
                 cuda=args.cuda,
+                max_workers=args.max_workers,
             )
             logger.info("Start running on %s", dataset_dir)
             comparison.run(
