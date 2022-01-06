@@ -75,6 +75,7 @@ def _tune(args: argparse.Namespace):
     )
     models, _ = get_models(
         graph_factories={"GT": dataset.graph_factory},  # GT: Ground Truth
+        params=args.model_params,
         seed=args.seed,
     )
     logger.info("Start tuning on %s", data_dir)
@@ -150,6 +151,12 @@ def _get_parser() -> argparse.ArgumentParser:
         default=1,
         help="The number of workers for parallel calculation",
     )
+    parser.add_argument(
+        "--model-params",
+        type=ModelParams,
+        required=False,
+        help="Provide a json file to specify options for model parameters.",
+    )
     subparsers = parser.add_subparsers(title="subcommands")
 
     parser_show_params = subparsers.add_parser(
@@ -207,12 +214,6 @@ def _get_parser() -> argparse.ArgumentParser:
         type=str,
         default="dataset",
         help="Data directory",
-    )
-    parser_run.add_argument(
-        "--model-params",
-        type=ModelParams,
-        required=False,
-        help="Provide a json file to specify options for model parameters.",
     )
     _add_output_argument(parser_run, default=os.path.join("output", "sim"))
     _add_report_argument(parser_run, default=os.path.join("report", "sim"))
