@@ -19,6 +19,10 @@ from srca.alg.dfs import MicroHECLScorer
 from srca.alg.evt import SPOTScorer
 from srca.alg.random_walk import RandomWalkScorer
 from srca.alg.random_walk import SecondOrderRandomWalkScorer
+from srca.alg.structural import StructuralRanker
+from srca.alg.structural import StructuralScorer
+from srca.alg.structural.forest import ForestRegressor
+from srca.alg.structural.linear import LinearRegressor
 from srca.model.case import CaseData
 
 
@@ -37,6 +41,13 @@ _in_params = dict(epoches=10, invariant_network=InvariantNetwork(n=1, m=1))
         ((ENMFScorer(model_params=_in_params, use_softmax=True),),),
         ((PartialCorrelationScorer(), RandomWalkScorer()),),
         ((CorrelationScorer(), SecondOrderRandomWalkScorer()),),
+        (
+            (
+                StructuralScorer(regressor=LinearRegressor(use_discrete=True)),
+                StructuralRanker(threshold=3),
+            ),
+        ),
+        ((StructuralScorer(regressor=ForestRegressor()),),),
     ],
 )
 def test_smoke(
