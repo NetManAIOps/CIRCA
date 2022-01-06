@@ -265,9 +265,7 @@ class Evaluation:
         self._ranks.append(ranks[: self._recommendation_num])
         answer_num = len(answers)
         for k in range(1, self._recommendation_num + 1):
-            self._accuracy[k] += len(answers.intersection(ranks[:k])) / min(
-                k, answer_num
-            )
+            self._accuracy[k] += len(answers.intersection(ranks[:k])) / answer_num
 
     def dump(self, filename: str) -> None:
         """
@@ -294,7 +292,7 @@ class Evaluation:
         """
         AC@k is the average of accuracy@k among cases
 
-        For each case, accuracy@k = |ranks[:k] \\cap answers| / min(k, |answers|)
+        For each case, accuracy@k = |ranks[:k] \\cap answers| / |answers|
         """
         if k not in self._accuracy or not self._ranks:
             return None
