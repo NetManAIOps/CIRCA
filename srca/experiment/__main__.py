@@ -77,6 +77,7 @@ def _tune(args: argparse.Namespace):
         graph_factories={"GT": dataset.graph_factory},  # GT: Ground Truth
         params=args.model_params,
         seed=args.seed,
+        cuda=args.cuda,
     )
     logger.info("Start tuning on %s", data_dir)
     comparison.run(
@@ -85,7 +86,7 @@ def _tune(args: argparse.Namespace):
         graph_factories=None,
         output_dir=args.output_dir,
         report_filename=os.path.join(report_dir, "report.csv"),
-        max_workers=args.max_workers,
+        max_workers=1 if args.cuda else args.max_workers,
     )
 
 
@@ -110,6 +111,7 @@ def _run(args: argparse.Namespace):
                 graph_factories={"GT": dataset.graph_factory},  # GT: Ground Truth
                 params=args.model_params,
                 seed=args.seed,
+                cuda=args.cuda,
             )
             logger.info("Start running on %s", dataset_dir)
             comparison.run(
@@ -151,6 +153,7 @@ def _get_parser() -> argparse.ArgumentParser:
         default=1,
         help="The number of workers for parallel calculation",
     )
+    parser.add_argument("--cuda", action="store_true", help="Use CUDA (GPU)")
     parser.add_argument(
         "--model-params",
         type=ModelParams,

@@ -130,10 +130,14 @@ class Scorer(ABC):
     """
 
     def __init__(
-        self, aggregator: Callable[[Sequence[float]], float] = max, seed: int = 0
+        self,
+        aggregator: Callable[[Sequence[float]], float] = max,
+        seed: int = 0,
+        cuda: bool = False,
     ):
         self._aggregator = aggregator
         self._seed = seed
+        self._cuda = cuda
 
     def score(
         self,

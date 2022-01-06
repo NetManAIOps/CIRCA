@@ -69,5 +69,5 @@ class CRDScorer(ENMFScorer):
         super().__init__(discrete=discrete, **kwargs)
         if model_params is None:
             model_params = {}
-        model_params = dict(seed=self._seed, **model_params)
+        model_params = dict(cuda=self._cuda, seed=self._seed, **model_params)
         self._model = CRD(**model_params)
