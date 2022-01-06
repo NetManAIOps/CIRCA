@@ -66,6 +66,10 @@ class CRD(ENMF):
         self._use_sgd = use_sgd
         self._cuda = cuda
 
+    @property
+    def _device(self):
+        return "cuda" if self._cuda else "cpu"
+
     def _cluster_broken(self, A: torch.FloatTensor, B: torch.FloatTensor):
         """
         Broken Cluster Identification
@@ -84,11 +88,12 @@ class CRD(ENMF):
 
         # The indicator matrix, with W_{xy} = 1 iff (x, y) is invariant but not broken
         W = (A > 0).float() - (B > 0).float()
-        U_origin = torch.randn(A.size()[0], self._num_cluster, requires_grad=True)
-        s_origin = torch.rand(self._num_cluster, requires_grad=True)
-        if self._cuda:
-            U_origin = U_origin.cuda()
-            s_origin = s_origin.cuda()
+        U_origin = torch.randn(
+            A.size()[0], self._num_cluster, requires_grad=True, device=self._device
+        )
+        s_origin = torch.rand(
+            self._num_cluster, requires_grad=True, device=self._device
+        )
         optimizer = SGD([U_origin, s_origin], lr=self._learning_rate, momentum=0.1)
 
         for epoch in range(self._epoches):
@@ -131,12 +136,14 @@ class CRD(ENMF):
         """
         Causal Anomaly Ranking with Stochastic Gradient Descent
         """
-        H = torch.FloatTensor(self.degree_normalize(A.cpu().numpy()), device=A.device)
+        H = torch.FloatTensor(self.degree_normalize(A.cpu().numpy()))
+        if self._cuda:
+            H = H.cuda()
         C = (A > 0).float()
 
-        E_origin = torch.randn(A.size()[0], self._num_cluster, requires_grad=True)
-        if self._cuda:
-            E_origin = E_origin.cuda()
+        E_origin = torch.randn(
+            A.size()[0], self._num_cluster, requires_grad=True, device=self._device
+        )
         optimizer = SGD([E_origin], lr=self._learning_rate)
 
         for epoch in range(self._epoches):
