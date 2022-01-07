@@ -79,7 +79,7 @@ def _tune(args: argparse.Namespace):
         seed=args.seed,
         cuda=args.cuda,
     )
-    logger.info("Start tuning on %s", data_dir)
+    logger.info("Start tuning on %s with #models=%d", data_dir, len(models))
     comparison.run(
         models=models,
         cases=dataset.cases,
@@ -137,7 +137,7 @@ def _add_report_argument(parser: argparse.ArgumentParser, default: str):
     )
 
 
-def _get_parser() -> argparse.ArgumentParser:
+def get_parser() -> Tuple[argparse.ArgumentParser, argparse._SubParsersAction]:
     """
     Prepare the command line parser
     """
@@ -223,11 +223,11 @@ def _get_parser() -> argparse.ArgumentParser:
     _add_report_argument(parser_run, default=os.path.join("report", "sim"))
     parser_run.set_defaults(func=_run)
 
-    return parser
+    return parser, subparsers
 
 
 def _main():
-    parser = _get_parser()
+    parser, _ = get_parser()
     parameters = parser.parse_args()
 
     if parameters.S:
