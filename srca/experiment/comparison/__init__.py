@@ -8,6 +8,7 @@ from multiprocessing import Process
 import os
 from typing import Dict
 from typing import List
+from typing import Set
 from typing import Tuple
 
 from ...alg.base import GraphFactory
@@ -17,6 +18,7 @@ from ...model.case import Case
 from ...utils import Timer
 from ...utils import dump_csv
 from ...utils import dump_json
+from ...utils import load_csv
 from ...utils import require_logging
 
 
@@ -67,6 +69,7 @@ def _create_graphs(
 
 
 def _evaluate(models: List[Model], cases: List[Case], **kwargs):
+    logger = logging.getLogger(f"{run.__module__}.evaluate")
     scores: List[Tuple[str, float, float, float, float, float]] = []
     num_cases = max(len(cases), 1)
     for model in models:
@@ -74,17 +77,30 @@ def _evaluate(models: List[Model], cases: List[Case], **kwargs):
         with Timer(name=name) as timer:
             report = evaluate(model, cases, **kwargs)
             duration = timer.duration
-        scores.append(
-            (
-                name,
-                report.accuracy(1),
-                report.accuracy(3),
-                report.accuracy(5),
-                report.average(5),
-                duration.total_seconds() / num_cases,
-            )
+        score = (
+            name,
+            report.accuracy(1),
+            report.accuracy(3),
+            report.accuracy(5),
+            report.average(5),
+            duration.total_seconds() / num_cases,
         )
+        logger.info("Finish: %s,%f,%f,%f,%f,%f", *score)
+        scores.append(score)
     return scores
+
+
+def _load_cached_report(report_filename: str, models: List[Model]):
+    scores: List[Tuple[str, float, float, float, float, float]] = []
+    cached_models: Set[str] = set()
+    if os.path.exists(report_filename):
+        reader = load_csv(report_filename)
+        _ = next(reader)
+        for model_name, *values in reader:
+            scores.append((model_name, *map(float, values)))
+            cached_models.add(model_name)
+    models = [model for model in models if model.name not in cached_models]
+    return scores, models
 
 
 def run(
@@ -134,8 +150,8 @@ def run(
                 **params,
             )
 
+    scores, models = _load_cached_report(report_filename=report_filename, models=models)
     if max_workers >= 2:
-        scores: List[Tuple[str, float, float, float, float, float]] = []
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             tasks = [
                 executor.submit(
@@ -149,7 +165,7 @@ def run(
             for task in as_completed(tasks):
                 scores += task.result()
     else:
-        scores = _evaluate(models=models, cases=cases, **params)
+        scores += _evaluate(models=models, cases=cases, **params)
 
     dump_csv(
         filename=report_filename,

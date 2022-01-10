@@ -20,7 +20,6 @@ def test_logging(
     """
     The forked process shall have the same logging level as the main one
     """
-    report_filename = os.path.join(tempdir, "report.csv")
     models, graph_factories = get_models()
     cases = [Case(data=case_data, answer={case_data.sla})]
     delay = 60
@@ -32,15 +31,17 @@ def test_logging(
         output_dir=tempdir,
         delay=delay,
         max_workers=max_workers,
-        report_filename=report_filename,
     )
     logging.basicConfig(level=logging.WARNING, force=True)
-    run(**params)
+    run(report_filename=os.path.join(tempdir, "report-warn.csv"), **params)
     assert "INFO:srca" not in capfd.readouterr().err
 
     logging.basicConfig(level=logging.INFO, force=True)
-    run(**params)
+    report_filename = os.path.join(tempdir, "report-info.csv")
+    run(report_filename=report_filename, **params)
     assert "INFO:srca" in capfd.readouterr().err
+    run(report_filename=report_filename, **params)
+    assert "INFO:srca" not in capfd.readouterr().err, "Historical report is lost"
 
 
 def test_compose_parameters():
