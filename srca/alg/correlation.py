@@ -60,7 +60,7 @@ class CorrelationScorer(DecomposableScorer):
         data: CaseData,
     ) -> Score:
         series_node = series[node]
-        correlation, p_value = pearsonr(series_node, series[data.sla])
+        correlation, p_value = pearsonr(series_node, series[data.sli])
 
         score = Score(abs(correlation))
         score["pearson"] = correlation
@@ -81,7 +81,7 @@ class PartialCorrelationScorer(DecomposableScorer):
         data: CaseData,
     ) -> Score:
         data_frame = pd.DataFrame(series)
-        correlation = partial_correlation(data.sla, node, graph, data_frame)
+        correlation = partial_correlation(data.sli, node, graph, data_frame)
         score = Score(abs(correlation))
         score["partial-correlation"] = correlation
         return score

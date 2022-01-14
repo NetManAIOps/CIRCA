@@ -18,7 +18,7 @@ from ..model.graph import Node
 class DFSScorer(Scorer):
     """
     Filter in anomalous nodes that do not have anomalous parents in the graph,
-    through searching from the SLA.
+    through searching from the SLI.
     """
 
     def __init__(self, anomaly_threshold: float, **kwargs):
@@ -43,8 +43,8 @@ class DFSScorer(Scorer):
             for node, score in scores.items()
             if score.score >= self._anomaly_threshold
         }
-        layer = {data.sla}
-        visited = {data.sla}
+        layer = {data.sli}
+        visited = {data.sli}
         roots: Set[Node] = set()
         while layer:
             next_layer: Set[Node] = set()

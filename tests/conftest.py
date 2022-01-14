@@ -37,7 +37,7 @@ def case_data(data_loader: DataLoader) -> CaseData:
     """
     return CaseData(
         data_loader=data_loader,
-        sla=Node("DB", "Latency"),
+        sli=Node("DB", "Latency"),
         detect_time=240,
         lookup_window=4,
         detect_window=2,

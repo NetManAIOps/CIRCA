@@ -46,4 +46,4 @@ def test_generate():
     assert len(dataset.cases) == num_cases
     case = dataset.cases[0]
     graph = dataset.graph_factory.create(data=case.data, current=case.data.detect_time)
-    assert len(graph.children(case.data.sla)) == 0
+    assert len(graph.children(case.data.sli)) == 0

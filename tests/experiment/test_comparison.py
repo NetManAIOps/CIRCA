@@ -21,7 +21,7 @@ def test_logging(
     The forked process shall have the same logging level as the main one
     """
     models, graph_factories = get_models()
-    cases = [Case(data=case_data, answer={case_data.sla})]
+    cases = [Case(data=case_data, answer={case_data.sli})]
     delay = 60
 
     params = dict(

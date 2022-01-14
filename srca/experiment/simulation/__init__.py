@@ -25,7 +25,7 @@ from ...utils import load_csv
 from ...utils import load_json
 
 
-_SLA = 0
+_SLI = 0
 ENTITY = "SIM"
 
 
@@ -77,7 +77,7 @@ class SimCase(Case):
         }
         self._data = CaseData(
             data_loader=MemoryDataLoader(data=data),
-            sla=Node(entity=ENTITY, metric=str(_SLA)),
+            sli=Node(entity=ENTITY, metric=str(_SLI)),
             detect_time=self._length_normal * interval,
             interval=self._interval,
             **self._case_data_params,
@@ -266,8 +266,8 @@ def generate_case(
         values = weight @ (beta * values + rng.standard_normal(num_node) * sigmas)
         data = np.append(data, [values], axis=0)
 
-    sla_mean: float = data[:, _SLA].mean()
-    sla_sigma: float = data[:, _SLA].std()
+    sli_mean: float = data[:, _SLI].mean()
+    sli_sigma: float = data[:, _SLI].std()
     # Inject a fault
     if fault is None:
         num_causes = min(rng.poisson(1) + 1, num_node)
@@ -277,10 +277,10 @@ def generate_case(
         epsilon = rng.standard_normal(num_node)
         while True:
             fault[causes] = alpha
-            sla_value: float = np.dot(
-                weight[_SLA, :], beta * values + (epsilon + fault) * sigmas
+            sli_value: float = np.dot(
+                weight[_SLI, :], beta * values + (epsilon + fault) * sigmas
             )
-            if abs(sla_value - sla_mean) > tau * sla_sigma:
+            if abs(sli_value - sli_mean) > tau * sli_sigma:
                 break
             alpha *= 2
     else:

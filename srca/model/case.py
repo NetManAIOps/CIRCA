@@ -19,7 +19,7 @@ class CaseData:
     def __init__(
         self,
         data_loader: DataLoader,
-        sla: Node,
+        sli: Node,
         detect_time: float,
         interval: datetime.timedelta = datetime.timedelta(minutes=1),
         lookup_window: int = 120,
@@ -27,7 +27,7 @@ class CaseData:
     ):
         # pylint: disable=too-many-arguments
         self._data_loader = data_loader
-        self._sla = sla
+        self._sli = sli
         self._detect_time = detect_time
 
         # Parameters for the algorithm
@@ -44,16 +44,16 @@ class CaseData:
         return self._data_loader
 
     @property
-    def sla(self) -> Node:
+    def sli(self) -> Node:
         """
-        The service level agreement (SLA) that is violated
+        The service level indicator (SLI) that is violated
         """
-        return self._sla
+        return self._sli
 
     @property
     def detect_time(self) -> float:
         """
-        Unix timestamp when the service level agreement (SLA) is violated
+        Unix timestamp when the service level indicator (SLI) is violated
         """
         return self._detect_time
 

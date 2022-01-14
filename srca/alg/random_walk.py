@@ -29,14 +29,14 @@ class RandomWalkScorer(Scorer):
     def __init__(
         self,
         rho: float = 0.5,
-        remove_sla: bool = False,
+        remove_sli: bool = False,
         num_loop: Union[int, Callable[[int], int]] = None,
         **kwargs,
     ):
         # pylint: disable=too-many-arguments
         super().__init__(**kwargs)
         self._rho = rho
-        self._remove_sla = remove_sla
+        self._remove_sli = remove_sli
         self._num_loop = num_loop if num_loop is not None else _times
         self._rng = np.random.default_rng(self._seed)
 
@@ -55,8 +55,8 @@ class RandomWalkScorer(Scorer):
                     matrix[node][child] = self._rho * abs(scores[child].score)
 
             parents = graph.parents(node)
-            if self._remove_sla:
-                parents -= {data.sla}
+            if self._remove_sli:
+                parents -= {data.sli}
             for parent in parents:
                 if parent in scores:
                     matrix[node][parent] = abs(scores[parent].score)
@@ -95,7 +95,7 @@ class RandomWalkScorer(Scorer):
             num_loop = self._num_loop
         else:
             num_loop = self._num_loop(len(scores))
-        counter = self._walk(start=data.sla, num_loop=num_loop, matrix=matrix)
+        counter = self._walk(start=data.sli, num_loop=num_loop, matrix=matrix)
 
         for node, score in scores.items():
             score["pagerank"] = score.score = counter[node] / num_loop

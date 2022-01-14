@@ -34,7 +34,7 @@ def test_smoke(factory: GraphFactory):
     )
     case_data = CaseData(
         data_loader=data_loader,
-        sla=Node(entity="DB", metric="0"),
+        sli=Node(entity="DB", metric="0"),
         detect_time=timestamps[-2],
         lookup_window=size,
     )
