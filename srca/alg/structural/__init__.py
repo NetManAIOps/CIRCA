@@ -39,6 +39,19 @@ class StructuralScorer(DecomposableScorer):
         )
         self._use_confidence = use_confidence
 
+    @staticmethod
+    def _split_train_test(
+        series_x: np.ndarray,
+        series_y: np.ndarray,
+        train_window: int,
+        test_window: int,
+    ):
+        train_x: np.ndarray = series_x[:train_window, :]
+        train_y: np.ndarray = series_y[:train_window]
+        test_x: np.ndarray = series_x[-test_window:, :]
+        test_y: np.ndarray = series_y[-test_window:]
+        return train_x, test_x, train_y, test_y
+
     def split_data(
         self,
         data: Dict[Node, Sequence[float]],
@@ -58,12 +71,12 @@ class StructuralScorer(DecomposableScorer):
         series_x: np.ndarray = series_x[self._tau_max :, :]
         series_y = np.array(data[node][self._tau_max :])
 
-        train_window = case_data.train_window - self._tau_max
-        train_x = series_x[:train_window, :]
-        train_y = series_y[:train_window]
-        test_x = series_x[-case_data.test_window :, :]
-        test_y = series_y[-case_data.test_window :]
-        return train_x, test_x, train_y, test_y
+        return self._split_train_test(
+            series_x=series_x,
+            series_y=series_y,
+            train_window=case_data.train_window - self._tau_max,
+            test_window=case_data.test_window,
+        )
 
     def score_node(
         self,

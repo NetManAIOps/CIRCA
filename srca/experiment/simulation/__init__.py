@@ -12,17 +12,17 @@ import networkx as nx
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-from ..alg.common import StaticGraphFactory
-from ..model.case import Case
-from ..model.case import CaseData
-from ..model.data_loader import MemoryDataLoader
-from ..model.graph import MemoryGraph
-from ..model.graph import Node
-from ..utils import ENCODING
-from ..utils import dump_csv
-from ..utils import dump_json
-from ..utils import load_csv
-from ..utils import load_json
+from ...alg.common import StaticGraphFactory
+from ...model.case import Case
+from ...model.case import CaseData
+from ...model.data_loader import MemoryDataLoader
+from ...model.graph import MemoryGraph
+from ...model.graph import Node
+from ...utils import ENCODING
+from ...utils import dump_csv
+from ...utils import dump_json
+from ...utils import load_csv
+from ...utils import load_json
 
 
 _SLA = 0

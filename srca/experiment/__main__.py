@@ -17,6 +17,8 @@ from . import comparison
 from .comparison.utils import ModelParams
 from .simulation import SimDataset
 from .simulation import generate
+from .simulation.structural import SimStructuralScorer
+from ..alg.common import Model
 
 
 _GRAPH_SIZES: List[Tuple[int, int]] = [
@@ -93,6 +95,7 @@ def _tune(args: argparse.Namespace):
 def _run(args: argparse.Namespace):
     from .comparison.models import get_models  # pylint: disable=import-outside-toplevel
 
+    model_params: ModelParams = args.model_params
     report_dir: str = args.report_dir
     os.makedirs(report_dir, exist_ok=True)
 
@@ -109,11 +112,23 @@ def _run(args: argparse.Namespace):
             )
             models, _ = get_models(
                 graph_factories={"GT": dataset.graph_factory},  # GT: Ground Truth
-                params=args.model_params,
+                params=model_params,
                 seed=args.seed,
                 cuda=args.cuda,
                 max_workers=args.max_workers,
             )
+            if model_params.structural.method:
+                models.append(
+                    Model(
+                        graph_factory=dataset.graph_factory,
+                        scorers=[
+                            SimStructuralScorer(
+                                seed=args.seed, max_workers=args.max_workers
+                            )
+                        ],
+                        names=["GT", "Sim-SRCA"],
+                    ),
+                )
             logger.info("Start running on %s", dataset_dir)
             comparison.run(
                 models=models,
