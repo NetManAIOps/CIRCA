@@ -3,6 +3,8 @@ Simluation with vector auto-regression model
 """
 import datetime
 import os
+import pickle
+from typing import Callable
 from typing import List
 from typing import Set
 
@@ -34,6 +36,7 @@ class SimCase(Case):
 
     DATA_FILENAME = "data.csv"
     INFO_FILENAME = "info.json"
+    DETAIL_FILENAME = "details.pk"
 
     def __init__(
         self,
@@ -42,6 +45,7 @@ class SimCase(Case):
         length_normal: int,
         interval: datetime.timedelta = datetime.timedelta(minutes=1),
         case_data_params: dict = None,
+        details: dict = None,
     ):
         # pylint: disable=too-many-arguments
         super().__init__(
@@ -53,6 +57,7 @@ class SimCase(Case):
         self._length_normal = length_normal
         self._interval = interval
         self._case_data_params = {} if case_data_params is None else case_data_params
+        self._details = details
 
     @property
     def data(self) -> CaseData:
@@ -111,6 +116,9 @@ class SimCase(Case):
             filename=os.path.join(folder, self.INFO_FILENAME),
             data=dict(causes=list(self._causes), length_normal=self._length_normal),
         )
+        if self._details:
+            with open(os.path.join(folder, self.DETAIL_FILENAME), "wb") as obj:
+                pickle.dump(self._details, obj)
 
 
 class SimDataset:
@@ -179,8 +187,22 @@ class SimDataset:
             case.dump(os.path.join(cases_folder, str(index)))
 
 
+def _normal_weight(rng: np.random.Generator) -> float:
+    weight = rng.standard_normal()
+    return np.sign(weight) * (abs(weight) + 0.2)
+
+
+def _uniform_weight(rng: np.random.Generator) -> float:
+    segments = [(-2.0, -0.5), (0.5, 2.0)]
+    low, high = rng.choice(segments)
+    return rng.uniform(low=low, high=high)
+
+
 def generate_sedag(
-    num_node: int, num_edge: int, minimum: float = 0.2, rng: np.random.Generator = None
+    num_node: int,
+    num_edge: int,
+    weight_generator: Callable[[np.random.Generator], float] = _uniform_weight,
+    rng: np.random.Generator = None,
 ) -> np.ndarray:
     """
     Generate a weighted directed acyclic graph with a single end.
@@ -191,21 +213,19 @@ def generate_sedag(
         a matrix, where matrix[i, j] != 0 means j is the cause of i
     """
     num_edge = min(max(num_edge, num_node - 1), int(num_node * (num_node - 1) / 2))
-    minimum = max(minimum, 0.0)
     if rng is None:
         rng = np.random.default_rng()
     matrix = np.zeros((num_node, num_node))
     # Make the graph connected
     for cause in range(1, num_node):
         result = rng.integers(low=0, high=cause)
-        matrix[result, cause] = rng.standard_normal()
+        matrix[result, cause] = weight_generator(rng)
     num_edge -= num_node - 1
     while num_edge > 0:
         cause = rng.integers(low=1, high=num_node)
         result = rng.integers(low=0, high=cause)
         if not matrix[result, cause]:
-            weight = rng.standard_normal()
-            matrix[result, cause] = np.sign(weight) * (abs(weight) + minimum)
+            matrix[result, cause] = weight_generator(rng)
             num_edge -= 1
     return matrix
 
@@ -280,7 +300,18 @@ def generate_case(
     scaler = StandardScaler().fit(data[:length_normal, :])
     data = np.around(scaler.transform(data), decimals=3)
 
-    return SimCase(data=data, causes=set(causes.tolist()), length_normal=length_normal)
+    details = dict(
+        fault=fault,
+        sigmas=sigmas,
+        stds=scaler.scale_,
+        weight=weight,
+    )
+    return SimCase(
+        data=data,
+        causes=set(causes.tolist()),
+        length_normal=length_normal,
+        details=details,
+    )
 
 
 def generate(
