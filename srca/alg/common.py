@@ -267,6 +267,13 @@ class Evaluation:
         for k in range(1, self._recommendation_num + 1):
             self._accuracy[k] += len(answers.intersection(ranks[:k])) / answer_num
 
+    @property
+    def num(self) -> int:
+        """
+        Number of cases
+        """
+        return len(self._ranks)
+
     def dump(self, filename: str) -> None:
         """
         Dump ranks into the given file

@@ -17,6 +17,7 @@ from . import comparison
 from .comparison.utils import ModelParams
 from .simulation import SimDataset
 from .simulation import generate
+from .simulation import robustness
 from .simulation.structural import SimStructuralScorer
 from ..alg.common import Model
 
@@ -140,6 +141,21 @@ def _run(args: argparse.Namespace):
             )
 
 
+def _run_robustness(args: argparse.Namespace):
+    cache_dir: str = args.cache_dir
+    data_dir: str = args.data_dir
+    report_dir: str = args.report_dir
+    os.makedirs(report_dir, exist_ok=True)
+
+    for num_node, _ in _GRAPH_SIZES:
+        robustness.evaluate(
+            num_graph=_NUM_GRAPHS,
+            cache_dir=os.path.join(cache_dir, str(num_node)),
+            data_dir=os.path.join(data_dir, str(num_node)),
+            report_dir=os.path.join(report_dir, str(num_node)),
+        )
+
+
 def _add_output_argument(parser: argparse.ArgumentParser, default: str):
     parser.add_argument(
         "--output-dir", type=str, default=default, help="Output directory"
@@ -237,6 +253,28 @@ def get_parser() -> Tuple[argparse.ArgumentParser, argparse._SubParsersAction]:
     _add_output_argument(parser_run, default=os.path.join("output", "sim"))
     _add_report_argument(parser_run, default=os.path.join("report", "sim"))
     parser_run.set_defaults(func=_run)
+
+    parser_robustness = subparsers.add_parser(
+        "robustness",
+        help="Compare models with faults of different dependency intensities",
+        **parser_params,
+    )
+    parser_robustness.add_argument(
+        "--data-dir",
+        type=str,
+        default=os.path.join("dataset"),
+        help="Data directory",
+    )
+    parser_robustness.add_argument(
+        "--cache-dir",
+        type=str,
+        default=os.path.join("output", "sim"),
+        help="Data directory",
+    )
+    _add_report_argument(
+        parser_robustness, default=os.path.join("report", "sim-robustness")
+    )
+    parser_robustness.set_defaults(func=_run_robustness)
 
     return parser, subparsers
 
