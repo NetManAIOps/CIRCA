@@ -12,6 +12,7 @@ from typing import Set
 from typing import Tuple
 
 from ...alg.base import GraphFactory
+from ...alg.common import Evaluation
 from ...alg.common import Model
 from ...alg.common import evaluate
 from ...model.case import Case
@@ -20,6 +21,9 @@ from ...utils import dump_csv
 from ...utils import dump_json
 from ...utils import load_csv
 from ...utils import require_logging
+
+
+IDEAL_METHOD = "GT-Ideal"
 
 
 def _create_graph(
@@ -68,6 +72,40 @@ def _create_graphs(
                 dump_json(graph_filename, {"status": "Timeout"})
 
 
+def report_evaluation(name: str, report: Evaluation, duration: float = None):
+    """
+    Return a tuple of (name, AC@1, AC@3, AC@5, Avg@5).
+    Duration will show at the end of the tuple if provided.
+    """
+    score = (
+        name,
+        report.accuracy(1),
+        report.accuracy(3),
+        report.accuracy(5),
+        report.average(5),
+    )
+    if duration is not None:
+        score += (duration,)
+    return score
+
+
+def report_ideal(cases: List[Case], name: str = IDEAL_METHOD):
+    """
+    Return the score tuple for the ideal algorithm
+    """
+    report = Evaluation()
+    for case in cases:
+        report(ranks=list(case.answer), answers=case.answer)
+    return report_evaluation(name, report)
+
+
+def _wrap_ideal_report(scores: List[tuple], cases: List[Case]):
+    names = {score[0] for score in scores}
+    if IDEAL_METHOD not in names:
+        scores = scores + [report_ideal(cases=cases, name=IDEAL_METHOD)]
+    return scores
+
+
 def _evaluate(models: List[Model], cases: List[Case], **kwargs):
     logger = logging.getLogger(f"{run.__module__}.evaluate")
     scores: List[Tuple[str, float, float, float, float, float]] = []
@@ -77,14 +115,7 @@ def _evaluate(models: List[Model], cases: List[Case], **kwargs):
         with Timer(name=name) as timer:
             report = evaluate(model, cases, **kwargs)
             duration = timer.duration
-        score = (
-            name,
-            report.accuracy(1),
-            report.accuracy(3),
-            report.accuracy(5),
-            report.average(5),
-            duration.total_seconds() / num_cases,
-        )
+        score = report_evaluation(name, report, duration.total_seconds() / num_cases)
         logger.info("Finish: %s,%f,%f,%f,%f,%f", *score)
         scores.append(score)
     return scores
@@ -166,6 +197,7 @@ def run(
                 scores += task.result()
     else:
         scores += _evaluate(models=models, cases=cases, **params)
+    scores = _wrap_ideal_report(scores=scores, cases=cases)
 
     dump_csv(
         filename=report_filename,
