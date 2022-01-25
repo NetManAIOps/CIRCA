@@ -1,5 +1,5 @@
 """
-Regress one node on its parents linearly
+Regress one node on its parents with an Additive Noise Model
 """
 import numpy as np
 from sklearn.linear_model._base import LinearModel
@@ -8,10 +8,10 @@ from sklearn.linear_model import LinearRegression
 from .base import Regressor
 
 
-class LinearRegressor(Regressor):
+class ANMRegressor(Regressor):
     """
-    Regress one node on its parents linearly
-    assuming x = W pa(X) + e and e follows a normal distribution
+    Regress one node on its parents with an Additive Noise Model
+    assuming x = f(pa(X)) + e and e follows a normal distribution
     """
 
     def __init__(self, regressor: LinearModel = None, **kwargs):
@@ -28,4 +28,4 @@ class LinearRegressor(Regressor):
         self._regressor.fit(train_x, train_y)
         train_err: np.ndarray = train_y - self._regressor.predict(train_x)
         test_err: np.ndarray = test_y - self._regressor.predict(test_x)
-        return self._zscore(train_y=train_err, test_y=test_err, ref_y=train_y)
+        return self._zscore(train_y=train_err, test_y=test_err)

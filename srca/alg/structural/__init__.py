@@ -8,8 +8,8 @@ from typing import Tuple
 
 import numpy as np
 
+from .anm import ANMRegressor
 from .base import Regressor
-from .linear import LinearRegressor
 from ..base import Score
 from ..base import Scorer
 from ..common import DecomposableScorer
@@ -29,14 +29,11 @@ class StructuralScorer(DecomposableScorer):
         tau_max: int = 0,
         regressor: Regressor = None,
         use_confidence: bool = False,
-        use_discrete: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self._tau_max = max(tau_max, 0)
-        self._regressor = (
-            regressor if regressor else LinearRegressor(use_discrete=use_discrete)
-        )
+        self._regressor = regressor if regressor else ANMRegressor()
         self._use_confidence = use_confidence
 
     @staticmethod

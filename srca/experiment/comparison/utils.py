@@ -45,7 +45,6 @@ class ADMethod(_Method):
     """Supported anomaly detection scorers"""
 
     NSIGMA = "NSigma"
-    DNSIGMA = "DNSigma"
     SPOT = "SPOT"
 
 
@@ -84,7 +83,7 @@ class Params(ABC):
 
     METHOD = Enum
 
-    method: Tuple[Enum] = dataclasses.field(default=())
+    method: Tuple[Enum, ...] = dataclasses.field(default=())
 
     def __post_init__(self):
         if self.__class__ is Params:
@@ -145,7 +144,7 @@ class GraphParams(Params):
 
     METHOD = GraphMethod
 
-    method: Tuple[GraphMethod] = dataclasses.field(default=GraphMethod.methods())
+    method: Tuple[GraphMethod, ...] = dataclasses.field(default=GraphMethod.methods())
     alpha: Tuple[float, ...] = dataclasses.field(
         default=_ALPHAS, metadata={"help": "Thresholds for p-value"}
     )
@@ -177,9 +176,9 @@ class ScorerParams(Params):
     def __post_init__(self):
         if self.__class__ is ScorerParams:
             raise self._prohibit_instantiate()
+        super().__post_init__()
         if isinstance(self.graph, dict):
             self.graph = GraphParams(**self.graph)
-        super().__post_init__()
 
 
 @dataclasses.dataclass
@@ -188,7 +187,7 @@ class ADParams(Params):
 
     METHOD = ADMethod
 
-    method: Tuple[ADMethod] = dataclasses.field(default=ADMethod.methods())
+    method: Tuple[ADMethod, ...] = dataclasses.field(default=ADMethod.methods())
     risk: Tuple[float, ...] = dataclasses.field(
         default=_RISKS, metadata={"help": "The probability of risk for SPOT"}
     )
@@ -200,7 +199,7 @@ class DFSParams(ScorerParams):
 
     METHOD = DFSMethod
 
-    method: Tuple[DFSMethod] = dataclasses.field(default=DFSMethod.methods())
+    method: Tuple[DFSMethod, ...] = dataclasses.field(default=DFSMethod.methods())
     detector: ADParams = dataclasses.field(
         default_factory=ADParams, metadata={"iterable": False}
     )
@@ -209,9 +208,9 @@ class DFSParams(ScorerParams):
     )
 
     def __post_init__(self):
+        super().__post_init__()
         if isinstance(self.detector, dict):
             self.detector = ADParams(**self.detector)
-        super().__post_init__()
 
 
 @dataclasses.dataclass
@@ -220,7 +219,7 @@ class RandomWalkParams(ScorerParams):
 
     METHOD = RandomWalkMethod
 
-    method: Tuple[RandomWalkMethod] = dataclasses.field(
+    method: Tuple[RandomWalkMethod, ...] = dataclasses.field(
         default=RandomWalkMethod.methods()
     )
     rho: Tuple[float, ...] = dataclasses.field(
@@ -238,7 +237,7 @@ class InvariantNetworkParams(Params):
 
     METHOD = InvariantNetworkMethod
 
-    method: Tuple[InvariantNetworkMethod] = dataclasses.field(
+    method: Tuple[InvariantNetworkMethod, ...] = dataclasses.field(
         default=InvariantNetworkMethod.methods()
     )
     discrete: Tuple[bool, ...] = dataclasses.field(
@@ -285,15 +284,11 @@ class StructuralParams(ScorerParams):
 
     METHOD = StructuralMethod
 
-    method: Tuple[StructuralMethod] = dataclasses.field(
+    method: Tuple[StructuralMethod, ...] = dataclasses.field(
         default=StructuralMethod.methods()
     )
     tau_max: Tuple[int, ...] = dataclasses.field(
         default=_TAU_MAXS, metadata={"help": "The maximum lag to be considered"}
-    )
-    use_discrete: Tuple[bool, ...] = dataclasses.field(
-        default=_TRUE_AND_FALSE,
-        metadata={"help": "Whether to use dzscore or zscore"},
     )
 
 

@@ -21,10 +21,10 @@ from srca.alg.random_walk import RandomWalkScorer
 from srca.alg.random_walk import SecondOrderRandomWalkScorer
 from srca.alg.structural import StructuralRanker
 from srca.alg.structural import StructuralScorer
+from srca.alg.structural.anm import ANMRegressor
 from srca.alg.structural.gmm import GMMRegressor
 from srca.alg.structural.gmm.mdn import MDNPredictor
 from srca.alg.structural.gmm.prob_rf import ProbRF
-from srca.alg.structural.linear import LinearRegressor
 from srca.model.case import CaseData
 
 
@@ -45,7 +45,7 @@ _in_params = dict(epoches=10, invariant_network=InvariantNetwork(n=1, m=1))
         ((CorrelationScorer(), SecondOrderRandomWalkScorer()),),
         (
             (
-                StructuralScorer(regressor=LinearRegressor(use_discrete=True)),
+                StructuralScorer(regressor=ANMRegressor()),
                 StructuralRanker(threshold=3),
             ),
         ),

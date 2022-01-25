@@ -26,7 +26,6 @@ from ...alg.random_walk import RandomWalkScorer
 from ...alg.random_walk import SecondOrderRandomWalkScorer
 from ...alg.structural import StructuralRanker
 from ...alg.structural import StructuralScorer
-from ...alg.structural.base import DiscreteNSigmaScorer
 from ...alg.structural.graph import StructrualGraphFactory
 
 
@@ -119,8 +118,6 @@ def _get_detectors(params: utils.ADParams, **scorer_params):
     if utils.ADMethod.SPOT in params.method:
         for risk in params.risk:
             detectors[f"SPOT_p{risk}"] = (SPOTScorer(proba=risk, **scorer_params), 0)
-    if utils.ADMethod.DNSIGMA in params.method:
-        detectors["DiscreteNSigma"] = (DiscreteNSigmaScorer(**scorer_params), 3)
 
     return detectors
 
@@ -384,14 +381,11 @@ class StructuralModelGetter(ModelGetter):
                 graph_params=self._params.graph, **graph_factory_params
             )
         model_base: List[Tuple[GraphFactory, str, str, dict]] = []
-        for params in product(self._params.tau_max, self._params.use_discrete):
+        for tau_max in self._params.tau_max:
             suffix, params = self.compose_parameters(
-                values=params,
-                names=(
-                    "tau_max",
-                    "use_discrete",
-                ),
-                abbrs=("t", "d"),
+                values=(tau_max,),
+                names=("tau_max",),
+                abbrs=("t",),
             )
             params.update(scorer_params)
             for graph_name, graph_factory in graph_factories.items():
