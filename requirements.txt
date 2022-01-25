@@ -5,6 +5,7 @@ networkx
 numpy
 pandas
 pingouin
+pytorch-lightning
 rpy2
 scipy
 scikit-learn
