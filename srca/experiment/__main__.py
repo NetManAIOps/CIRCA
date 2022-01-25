@@ -20,6 +20,7 @@ from .simulation import generate
 from .simulation import robustness
 from .simulation.structural import SimStructuralScorer
 from ..alg.common import Model
+from ..utils import silence_third_party
 
 
 _GRAPH_SIZES: List[Tuple[int, int]] = [
@@ -289,6 +290,8 @@ def _main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+    if not parameters.V:
+        silence_third_party()
 
     if "func" in parameters:
         parameters.func(parameters)

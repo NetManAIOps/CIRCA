@@ -29,6 +29,14 @@ def get_logging_level() -> int:
     return logging.getLogger().getEffectiveLevel()
 
 
+def silence_third_party():
+    """
+    Silence logging of third party packages
+    """
+    warnings.filterwarnings("ignore", category=UserWarning)
+    logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
+
+
 class _LoggingWrapper:
     def __init__(self, logging_level: int, fun: Callable[..., _Template]):
         self._logging_level = logging_level
@@ -36,6 +44,8 @@ class _LoggingWrapper:
 
     def __call__(self, *args, **kwargs):
         logging.basicConfig(level=self._logging_level)
+        if self._logging_level > logging.DEBUG:
+            silence_third_party()
         return self._fun(*args, **kwargs)
 
 
