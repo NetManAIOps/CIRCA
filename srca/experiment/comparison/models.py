@@ -8,6 +8,8 @@ from typing import Generator
 from typing import List
 from typing import Tuple
 
+from sklearn.svm import SVR
+
 from . import utils
 from ...alg.base import GraphFactory
 from ...alg.base import Scorer
@@ -27,6 +29,9 @@ from ...alg.random_walk import RandomWalkScorer
 from ...alg.random_walk import SecondOrderRandomWalkScorer
 from ...alg.structural import StructuralRanker
 from ...alg.structural import StructuralScorer
+from ...alg.structural.anm import ANMRegressor
+from ...alg.structural.gmm import GMMRegressor
+from ...alg.structural.gmm.mdn import MDNPredictor
 from ...alg.structural.graph import StructrualGraphFactory
 
 
@@ -572,7 +577,20 @@ class StructuralModelGetter(ScorerModelGetter):
             (self._params.tau_max,), names=("tau_max",), abbrs=("t",)
         ):
             params.update(scorer_params)
-            yield suffix, params
+            for regressor in self._params.regressor:
+                if regressor == "linear":
+                    yield suffix, params
+                elif regressor == "svr":
+                    yield f"_svr{suffix}", dict(
+                        regressor=ANMRegressor(regressor=SVR(kernel="sigmoid")),
+                        **params,
+                    )
+                elif regressor == "rf":
+                    yield f"_rf{suffix}", dict(regressor=GMMRegressor(), **params)
+                elif regressor == "mdn":
+                    yield f"_mdn{suffix}", dict(
+                        regressor=GMMRegressor(regressor=MDNPredictor()), **params
+                    )
 
 
 class SRCAGetter(StructuralModelGetter):

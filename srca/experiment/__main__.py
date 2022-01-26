@@ -119,7 +119,7 @@ def _run(args: argparse.Namespace):
                 cuda=args.cuda,
                 max_workers=args.max_workers,
             )
-            if model_params.structural.method:
+            if model_params.srca:
                 models.append(
                     Model(
                         graph_factory=dataset.graph_factory,

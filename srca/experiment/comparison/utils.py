@@ -364,6 +364,12 @@ class StructuralParams(ScorerParams):
             Params.ABBREVIATION: "t",
         },
     )
+    regressor: Tuple[str, ...] = dataclasses.field(
+        default=("linear", "svr", "rf", "mdn"),
+        metadata={
+            Params.HELP_MESSAGE: "Regressor",
+        },
+    )
 
 
 @dataclasses.dataclass
