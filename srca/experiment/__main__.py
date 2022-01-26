@@ -2,7 +2,7 @@
 Command line utilities
 """
 import argparse
-from dataclasses import asdict
+import dataclasses
 from enum import Enum
 import json
 import logging
@@ -45,7 +45,7 @@ def _show_params(_: argparse.Namespace):
     def _enum2str(data: List[Tuple[str, Any]]) -> dict:
         return {key: _convert_value(value) for key, value in data}
 
-    params = asdict(ModelParams(), dict_factory=_enum2str)
+    params = dataclasses.asdict(ModelParams.create_full(), dict_factory=_enum2str)
     print(json.dumps(params, indent=2, ensure_ascii=False))
 
 

@@ -4,6 +4,7 @@ Utilities
 from abc import ABC
 from itertools import product
 from typing import Dict
+from typing import Generator
 from typing import List
 from typing import Tuple
 
@@ -37,6 +38,9 @@ class ModelGetter(ABC):
     Abstract interface to get models
     """
 
+    def __init__(self, params: utils.Params):
+        self._params = params
+
     @staticmethod
     def compose_parameters(
         values: tuple, names: tuple, abbrs: tuple
@@ -57,49 +61,79 @@ class ModelGetter(ABC):
                 suffix += f"_{abbr}{value}"
         return (suffix, params)
 
+    @staticmethod
+    def compose_fields(
+        fields: Tuple[tuple], names: tuple, abbrs: tuple
+    ) -> Generator[Tuple[str, dict], None, None]:
+        """
+        Generate parameter combinations
+        """
+        for values in product(*fields):
+            yield ModelGetter.compose_parameters(values, names=names, abbrs=abbrs)
+
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        raise NotImplementedError
+
     def get(
         self,
         graph_factory_params: dict,
         graph_factories: Dict[str, GraphFactory] = None,
         **scorer_params,
     ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
+        # pylint: disable=unused-argument
         """
         List models and used graph factories
         """
-        raise NotImplementedError
+        if self._params is None:
+            return [], {}
+        return self._get(graph_factories=None, **scorer_params), {}
 
 
 def _get_graph_factories(
     graph_params: utils.GraphParams, seed: int, structural_graph_params: dict = None
 ):
-    pc_params: List[Tuple[str, dict]] = []
-    for params in product(graph_params.alpha, graph_params.max_conds_dim):
-        suffix, params = ModelGetter.compose_parameters(
-            values=params, names=("alpha", "max_conds_dim"), abbrs=("a", "m")
-        )
-        params["seed"] = seed
-        pc_params.append((suffix, params))
     graph_factories: Dict[str, GraphFactory] = {}
 
-    if utils.GraphMethod.PC_GAUSS in graph_params.method:
-        for suffix, params in pc_params:
+    if graph_params.pc_gauss:
+        for suffix, params in ModelGetter.compose_fields(
+            (graph_params.pc_gauss.alpha, graph_params.pc_gauss.max_conds_dim),
+            names=("alpha", "max_conds_dim"),
+            abbrs=("a", "m"),
+        ):
             graph_factories["PC_gauss" + suffix] = PCAlgFactory(
-                method="PC-gauss", num_cores=graph_params.num_cores, **params
+                method="PC-gauss",
+                num_cores=graph_params.pc_gauss.num_cores,
+                seed=seed,
+                **params,
             )
-    if utils.GraphMethod.PC_GSQ in graph_params.method:
-        for suffix, params in pc_params:
+    if graph_params.pc_gsq:
+        for suffix, params in ModelGetter.compose_fields(
+            (graph_params.pc_gsq.alpha, graph_params.pc_gsq.max_conds_dim),
+            names=("alpha", "max_conds_dim"),
+            abbrs=("a", "m"),
+        ):
             graph_factories["PC_gsq" + suffix] = PCAlgFactory(
-                method="PC-gsq", num_cores=graph_params.num_cores, **params
+                method="PC-gsq",
+                num_cores=graph_params.pc_gsq.num_cores,
+                seed=seed,
+                **params,
             )
-    if utils.GraphMethod.PCTS in graph_params.method:
-        for (suffix, params), tau_max in product(pc_params, graph_params.tau_max):
-            graph_factories["PCTS" + suffix + f"_t{tau_max}"] = PCTSFactory(
-                tau_max=tau_max, **params
-            )
-    if (
-        utils.GraphMethod.STRUCTURAL in graph_params.method
-        and structural_graph_params is not None
-    ):
+    if graph_params.pcts:
+        for suffix, params in ModelGetter.compose_fields(
+            (
+                graph_params.pcts.alpha,
+                graph_params.pcts.max_conds_dim,
+                graph_params.pcts.tau_max,
+            ),
+            names=("alpha", "max_conds_dim", "tau_max"),
+            abbrs=("a", "m", "t"),
+        ):
+            graph_factories["PCTS" + suffix] = PCTSFactory(seed=seed, **params)
+    if graph_params.structural and structural_graph_params is not None:
         graph_factories["Structural"] = StructrualGraphFactory(
             **structural_graph_params, seed=seed
         )
@@ -107,54 +141,101 @@ def _get_graph_factories(
     return graph_factories
 
 
-def _get_detectors(params: utils.ADParams, **scorer_params):
+def _get_detectors(ad_params: utils.ADParams, **scorer_params):
     """
     Map a detector name to a pair of Scorer and threshold
     """
     detectors: Dict[str, Tuple[Scorer, float]] = {}
 
-    if utils.ADMethod.NSIGMA in params.method:
+    if ad_params.nsigma:
         detectors["NSigma"] = (NSigmaScorer(**scorer_params), 3)
-    if utils.ADMethod.SPOT in params.method:
-        for risk in params.risk:
-            detectors[f"SPOT_p{risk}"] = (SPOTScorer(proba=risk, **scorer_params), 0)
+    if ad_params.spot:
+        for suffix, params in ModelGetter.compose_fields(
+            (ad_params.spot.risk,), names=("proba",), abbrs=("p",)
+        ):
+            detectors["SPOT" + suffix] = (SPOTScorer(**params, **scorer_params), 0)
 
     return detectors
 
 
-class ADModelGetter(ModelGetter):
+class NSigmaGetter(ModelGetter):
     """
-    Get anomaly detection models
+    Get NSigma models
     """
 
-    def __init__(self, params: utils.ADParams):
+    def __init__(self, params: utils.NSigmaParams):
+        super().__init__(params=params)
         self._params = params
 
-    def get(
+    def _get(
         self,
-        graph_factory_params: dict,
         graph_factories: Dict[str, GraphFactory] = None,
         **scorer_params,
-    ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
-        detectors = _get_detectors(params=self._params, **scorer_params)
+    ) -> List[Model]:
         graph_factory = EmptyGraphFactory()
         return [
             Model(
                 graph_factory=graph_factory,
-                scorers=[detector],
-                names=(EMPTY_GRAPH_NAME, name),
+                scorers=[NSigmaScorer(**scorer_params)],
+                names=(EMPTY_GRAPH_NAME, "NSigma"),
             )
-            for name, (detector, _) in detectors.items()
-        ], {}
+        ]
 
 
-class DFSModelGetter(ModelGetter):
+class SPOTGetter(ModelGetter):
     """
-    Get dfs-based models
+    Get SPOT models
     """
 
-    def __init__(self, params: utils.DFSParams):
+    def __init__(self, params: utils.SPOTParams):
+        super().__init__(params=params)
         self._params = params
+
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        graph_factory = EmptyGraphFactory()
+        return [
+            Model(
+                graph_factory=graph_factory,
+                scorers=[SPOTScorer(**params, **scorer_params)],
+                names=(EMPTY_GRAPH_NAME, "SPOT" + suffix),
+            )
+            for suffix, params in ModelGetter.compose_fields(
+                (self._params.risk,), names=("proba",), abbrs=("p",)
+            )
+        ]
+
+
+class ScorerModelGetter(ModelGetter):
+    """
+    Get graph-based models
+    """
+
+    def __init__(self, params: utils.ScorerParams):
+        super().__init__(params=params)
+        self._params = params
+
+    def _compose_parameters(self, **scorer_params):
+        raise NotImplementedError
+
+    def _get_model_base(
+        self,
+        graph_factories: Dict[str, GraphFactory],
+        **scorer_params,
+    ):
+        for suffix, params in self._compose_parameters(**scorer_params):
+            for graph_name, graph_factory in graph_factories.items():
+                yield graph_factory, graph_name, suffix, params
+
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        raise NotImplementedError
 
     def get(
         self,
@@ -162,259 +243,383 @@ class DFSModelGetter(ModelGetter):
         graph_factories: Dict[str, GraphFactory] = None,
         **scorer_params,
     ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
-        # pylint: disable=too-many-locals
+        if self._params is None:
+            return [], {}
         if graph_factories is None:
             graph_factories = _get_graph_factories(
                 graph_params=self._params.graph, **graph_factory_params
             )
-        detectors = _get_detectors(params=self._params.detector, **scorer_params)
-        model_base: List[Tuple[GraphFactory, Scorer, List[str], str, dict]] = []
+        return (
+            self._get(graph_factories=graph_factories, **scorer_params),
+            graph_factories,
+        )
+
+
+class DFSGetter(ScorerModelGetter):
+    """
+    Get DFS models
+    """
+
+    def __init__(self, params: utils.DFSParams):
+        super().__init__(params=params)
+        self._params = params
+
+    def _compose_parameters(self, **scorer_params):
+        detectors = _get_detectors(ad_params=self._params.detector, **scorer_params)
         for detector_name, (detector, anomaly_threshold) in detectors.items():
             suffix, params = self.compose_parameters(
                 values=(anomaly_threshold,), names=("anomaly_threshold",), abbrs=("a",)
             )
             params.update(scorer_params)
+            yield detector, detector_name, suffix, params
+
+    def _get_model_base(
+        self,
+        graph_factories: Dict[str, GraphFactory],
+        **scorer_params,
+    ):
+        for detector, detector_name, suffix, params in self._compose_parameters(
+            **scorer_params
+        ):
             for graph_name, graph_factory in graph_factories.items():
-                model_base.append(
-                    (
-                        graph_factory,
-                        detector,
-                        [graph_name, detector_name],
-                        suffix,
-                        params,
-                    )
+                yield (
+                    graph_factory,
+                    detector,
+                    [graph_name, detector_name],
+                    suffix,
+                    params,
                 )
-        models: List[Model] = []
 
-        if utils.DFSMethod.DFS in self._params.method:
-            for graph_factory, detector, names, suffix, params in model_base:
-                models.append(
-                    Model(
-                        graph_factory=graph_factory,
-                        scorers=[detector, DFSScorer(**params)],
-                        names=[*names, "DFS" + suffix],
-                    ),
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        return [
+            Model(
+                graph_factory=graph_factory,
+                scorers=[detector, DFSScorer(**params)],
+                names=[*names, "DFS" + suffix],
+            )
+            for graph_factory, detector, names, suffix, params in self._get_model_base(
+                graph_factories=graph_factories, **scorer_params
+            )
+        ]
+
+
+class MicroscopeGetter(DFSGetter):
+    """
+    Get Microscope models
+    """
+
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        return [
+            Model(
+                graph_factory=graph_factory,
+                scorers=[
+                    detector,
+                    DFSScorer(**params),
+                    CorrelationScorer(**scorer_params),
+                ],
+                names=[*names, "DFS" + suffix, "Pearson"],
+            )
+            for graph_factory, detector, names, suffix, params in self._get_model_base(
+                graph_factories=graph_factories, **scorer_params
+            )
+        ]
+
+
+class MicroHECLGetter(DFSGetter):
+    """
+    Get MicroHECL models
+    """
+
+    def __init__(self, params: utils.MicroHECLParams):
+        super().__init__(params=params)
+        self._params = params
+
+    def _compose_parameters(self, **scorer_params):
+        detectors = _get_detectors(ad_params=self._params.detector, **scorer_params)
+        for detector_name, (detector, anomaly_threshold) in detectors.items():
+            for stop_threshold in self._params.stop_threshold:
+                suffix, params = self.compose_parameters(
+                    values=(anomaly_threshold, stop_threshold),
+                    names=("anomaly_threshold", "stop_threshold"),
+                    abbrs=("a", "s"),
                 )
-        if utils.DFSMethod.MICRO_SCOPE in self._params.method:
-            for graph_factory, detector, names, suffix, params in model_base:
-                models.append(
-                    Model(
-                        graph_factory=graph_factory,
-                        scorers=[
-                            detector,
-                            DFSScorer(**params),
-                            CorrelationScorer(**scorer_params),
-                        ],
-                        names=[*names, "DFS" + suffix, "Pearson"],
-                    ),
-                )
-        if utils.DFSMethod.MICRO_HECL in self._params.method:
-            for graph_factory, detector, names, suffix, params in model_base:
-                for stop_threshold in self._params.stop_threshold:
-                    scorer = MicroHECLScorer(stop_threshold=stop_threshold, **params)
-                    models.append(
-                        Model(
-                            graph_factory=graph_factory,
-                            scorers=[detector, scorer],
-                            names=[*names, "MicroHECL" + f"{suffix}_s{stop_threshold}"],
-                        ),
-                    )
+                params.update(scorer_params)
+                yield detector, detector_name, suffix, params
 
-        return models, graph_factories
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        return [
+            Model(
+                graph_factory=graph_factory,
+                scorers=[detector, MicroHECLScorer(**params)],
+                names=[*names, "MicroHECL" + suffix],
+            )
+            for graph_factory, detector, names, suffix, params in self._get_model_base(
+                graph_factories=graph_factories, **scorer_params
+            )
+        ]
 
 
-class RWModelGetter(ModelGetter):
+class RWModelGetter(ScorerModelGetter):
     """
     Get random walk-based models
     """
 
     def __init__(self, params: utils.RandomWalkParams):
+        super().__init__(params=params)
         self._params = params
 
-    def get(
-        self,
-        graph_factory_params: dict,
-        graph_factories: Dict[str, GraphFactory] = None,
-        **scorer_params,
-    ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
-        if graph_factories is None:
-            graph_factories = _get_graph_factories(
-                graph_params=self._params.graph, **graph_factory_params
-            )
-        model_base: List[Tuple[GraphFactory, str, str, dict]] = []
-        for rho in self._params.rho:
-            suffix, params = self.compose_parameters(
-                values=(rho,), names=("rho",), abbrs=("r",)
-            )
-            params.update(scorer_params)
-            for graph_name, graph_factory in graph_factories.items():
-                model_base.append((graph_factory, graph_name, suffix, params))
-        models: List[Model] = []
-
-        if utils.RandomWalkMethod.MICRO_CAUSE in self._params.method:
-            for graph_factory, graph_name, suffix, params in model_base:
-                models.append(
-                    Model(
-                        graph_factory=graph_factory,
-                        scorers=[
-                            PartialCorrelationScorer(**scorer_params),
-                            RandomWalkScorer(**params),
-                        ],
-                        names=[graph_name, "PartialCorrelation", "RW" + suffix],
-                    ),
-                )
-        if utils.RandomWalkMethod.CLOUD_RANGER in self._params.method:
-            for graph_factory, graph_name, suffix, params in model_base:
-                for beta in self._params.beta:
-                    models.append(
-                        Model(
-                            graph_factory=graph_factory,
-                            scorers=[
-                                CorrelationScorer(**scorer_params),
-                                SecondOrderRandomWalkScorer(beta=beta, **params),
-                            ],
-                            names=[
-                                graph_name,
-                                "Pearson",
-                                "RW_2" + f"{suffix}_b{beta}",
-                            ],
-                        ),
-                    )
-
-        return models, graph_factories
-
-
-class INModelGetter(ModelGetter):
-    """
-    Get invariant network-based models
-    """
-
-    def __init__(self, params: utils.InvariantNetworkParams):
-        self._params = params
-
-    def get(
-        self,
-        graph_factory_params: dict,
-        graph_factories: Dict[str, GraphFactory] = None,
-        **scorer_params,
-    ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
-        base_params: List[Tuple[str, dict, bool]] = []
-        for discrete, *params in product(
-            self._params.discrete, self._params.gamma, self._params.tau
+    def _compose_parameters(self, **scorer_params):
+        for suffix, params in self.compose_fields(
+            (self._params.rho,), names=("rho",), abbrs=("r",)
         ):
-            suffix, params = self.compose_parameters(
-                values=params, names=("gamma", "tau"), abbrs=("c", "t")
-            )
-            if discrete:
-                suffix += "_d"
-            base_params.append((suffix, params, discrete))
-        models: List[Model] = []
+            params.update(scorer_params)
+            yield suffix, params
 
-        if utils.InvariantNetworkMethod.ENMF in self._params.method:
-            for use_softmax, (suffix, params, discrete) in product(
-                self._params.use_softmax, base_params
-            ):
-                if use_softmax:
-                    suffix = "_soft" + suffix
-                models.append(
-                    Model(
-                        graph_factory=EmptyGraphFactory(),
-                        scorers=[
-                            ENMFScorer(
-                                model_params=params,
-                                use_softmax=use_softmax,
-                                discrete=discrete,
-                                **scorer_params,
-                            )
-                        ],
-                        names=(EMPTY_GRAPH_NAME, "ENMF" + suffix),
-                    )
-                )
-        if utils.InvariantNetworkMethod.CRD in self._params.method:
-            for crd_params in product(
+
+class MicroCauseGetter(RWModelGetter):
+    """
+    Get MicroCause models
+    """
+
+    def __init__(self, params: utils.MicroCauseParams):
+        super().__init__(params=params)
+        self._params = params
+
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        return [
+            Model(
+                graph_factory=graph_factory,
+                scorers=[
+                    PartialCorrelationScorer(**scorer_params),
+                    RandomWalkScorer(**params),
+                ],
+                names=[graph_name, "PartialCorrelation", "RW" + suffix],
+            )
+            for graph_factory, graph_name, suffix, params in self._get_model_base(
+                graph_factories=graph_factories, **scorer_params
+            )
+        ]
+
+
+class CloudRangerGetter(RWModelGetter):
+    """
+    Get CloudRanger models
+    """
+
+    def __init__(self, params: utils.CloudRangerParams):
+        super().__init__(params=params)
+        self._params = params
+
+    def _compose_parameters(self, **scorer_params):
+        for suffix, params in self.compose_fields(
+            (self._params.rho, self._params.beta),
+            names=("rho", "beta"),
+            abbrs=("r", "b"),
+        ):
+            params.update(scorer_params)
+            yield suffix, params
+
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        return [
+            Model(
+                graph_factory=graph_factory,
+                scorers=[
+                    CorrelationScorer(**scorer_params),
+                    SecondOrderRandomWalkScorer(**params),
+                ],
+                names=[
+                    graph_name,
+                    "Pearson",
+                    "RW_2" + suffix,
+                ],
+            )
+            for graph_factory, graph_name, suffix, params in self._get_model_base(
+                graph_factories=graph_factories, **scorer_params
+            )
+        ]
+
+
+class ENMFGetter(ModelGetter):
+    """
+    Get ENMF models
+    """
+
+    def __init__(self, params: utils.ENMFParams):
+        super().__init__(params=params)
+        self._params = params
+
+    def _compose_parameters(self, **scorer_params):
+        for suffix, params in self.compose_fields(
+            (
+                self._params.use_softmax,
+                self._params.gamma,
+                self._params.tau,
+                self._params.discrete,
+            ),
+            names=("use_softmax", "gamma", "tau", "discrete"),
+            abbrs=("soft", "c", "t", "d"),
+        ):
+            use_softmax: bool = params.pop("use_softmax")
+            discrete: bool = params.pop("discrete")
+            params = dict(
+                model_params=params,
+                use_softmax=use_softmax,
+                discrete=discrete,
+                **scorer_params,
+            )
+            yield suffix, params
+
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        return [
+            Model(
+                graph_factory=EmptyGraphFactory(),
+                scorers=[ENMFScorer(**params)],
+                names=(EMPTY_GRAPH_NAME, "ENMF" + suffix),
+            )
+            for suffix, params in self._compose_parameters(**scorer_params)
+        ]
+
+
+class CRDGetter(ModelGetter):
+    """
+    Get CRD models
+    """
+
+    def __init__(self, params: utils.CRDParams):
+        super().__init__(params=params)
+        self._params = params
+
+    def _compose_parameters(self, **scorer_params):
+        for suffix, params in self.compose_fields(
+            (
+                self._params.gamma,
+                self._params.tau,
+                self._params.discrete,
                 self._params.num_cluster,
                 self._params.alpha,
                 self._params.beta,
                 self._params.learning_rate,
-            ):
-                crd_suffix, crd_params = self.compose_parameters(
-                    values=crd_params,
-                    names=("num_cluster", "alpha", "beta", "learning_rate"),
-                    abbrs=("nc", "a", "b", "lr"),
-                )
-                for suffix, params, discrete in base_params:
-                    suffix += crd_suffix
-                    params = {**crd_params, **params}
-                    models.append(
-                        Model(
-                            graph_factory=EmptyGraphFactory(),
-                            scorers=[
-                                CRDScorer(
-                                    model_params=params,
-                                    discrete=discrete,
-                                    **scorer_params,
-                                )
-                            ],
-                            names=(EMPTY_GRAPH_NAME, "CRD" + suffix),
-                        )
-                    )
+            ),
+            names=(
+                "gamma",
+                "tau",
+                "discrete",
+                "num_cluster",
+                "alpha",
+                "beta",
+                "learning_rate",
+            ),
+            abbrs=("c", "t", "d", "nc", "a", "b", "lr"),
+        ):
+            discrete: bool = params.pop("discrete")
+            params = dict(
+                model_params=params,
+                discrete=discrete,
+                **scorer_params,
+            )
+            yield suffix, params
 
-        return models, {}
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
+        return [
+            Model(
+                graph_factory=EmptyGraphFactory(),
+                scorers=[CRDScorer(**params)],
+                names=(EMPTY_GRAPH_NAME, "CRD" + suffix),
+            )
+            for suffix, params in self._compose_parameters(**scorer_params)
+        ]
 
 
-class StructuralModelGetter(ModelGetter):
+class StructuralModelGetter(ScorerModelGetter):
     """
     Get structural models
     """
 
     def __init__(self, params: utils.StructuralParams):
+        super().__init__(params=params)
         self._params = params
 
-    def get(
+    def _compose_parameters(self, **scorer_params):
+        for suffix, params in self.compose_fields(
+            (self._params.tau_max,), names=("tau_max",), abbrs=("t",)
+        ):
+            params.update(scorer_params)
+            yield suffix, params
+
+
+class SRCAGetter(StructuralModelGetter):
+    """
+    Get SRCA models
+    """
+
+    def _get(
         self,
-        graph_factory_params: dict,
         graph_factories: Dict[str, GraphFactory] = None,
         **scorer_params,
-    ) -> Tuple[List[Model], Dict[str, GraphFactory]]:
-        if graph_factories is None:
-            graph_factories = _get_graph_factories(
-                graph_params=self._params.graph, **graph_factory_params
+    ) -> List[Model]:
+        return [
+            Model(
+                graph_factory=graph_factory,
+                scorers=[StructuralScorer(**params)],
+                names=(graph_name, "Structural" + suffix),
             )
-        model_base: List[Tuple[GraphFactory, str, str, dict]] = []
-        for tau_max in self._params.tau_max:
-            suffix, params = self.compose_parameters(
-                values=(tau_max,),
-                names=("tau_max",),
-                abbrs=("t",),
+            for graph_factory, graph_name, suffix, params in self._get_model_base(
+                graph_factories=graph_factories, **scorer_params
             )
-            params.update(scorer_params)
-            for graph_name, graph_factory in graph_factories.items():
-                model_base.append((graph_factory, graph_name, suffix, params))
+        ]
+
+
+class SRCADAGetter(StructuralModelGetter):
+    """
+    Get SRCA-DA models
+    """
+
+    def _get(
+        self,
+        graph_factories: Dict[str, GraphFactory] = None,
+        **scorer_params,
+    ) -> List[Model]:
         # The three-sigma rule of thumb, as use_confidence=False by default
         threshold = 3
         ranker = StructuralRanker(threshold=threshold)
-        models: List[Model] = []
-
-        if utils.StructuralMethod.SRCA in self._params.method:
-            for graph_factory, graph_name, suffix, params in model_base:
-                models.append(
-                    Model(
-                        graph_factory=graph_factory,
-                        scorers=[StructuralScorer(**params)],
-                        names=(graph_name, "Structural" + suffix),
-                    )
-                )
-        if utils.StructuralMethod.SRCA_DA in self._params.method:
-            for graph_factory, graph_name, suffix, params in model_base:
-                models.append(
-                    Model(
-                        graph_factory=graph_factory,
-                        scorers=[StructuralScorer(**params), ranker],
-                        names=(graph_name, "Structural" + suffix, "Structural"),
-                    )
-                )
-
-        return models, {}
+        return [
+            Model(
+                graph_factory=graph_factory,
+                scorers=[StructuralScorer(**params), ranker],
+                names=(graph_name, "Structural" + suffix, "Structural"),
+            )
+            for graph_factory, graph_name, suffix, params in self._get_model_base(
+                graph_factories=graph_factories, **scorer_params
+            )
+        ]
 
 
 def get_models(
@@ -432,7 +637,7 @@ def get_models(
         params: Specify options for model parameters
     """
     if params is None:
-        params = utils.ModelParams()
+        params = utils.ModelParams.create_full()
 
     graph_factory_params = dict(
         structural_graph_params=structural_graph_params, seed=seed
@@ -444,11 +649,17 @@ def get_models(
         **scorer_params,
     )
     getters: List[ModelGetter] = [
-        ADModelGetter(params.anomaly_detection),
-        DFSModelGetter(params.dfs),
-        RWModelGetter(params.random_walk),
-        INModelGetter(params.invariant_network),
-        StructuralModelGetter(params.structural),
+        NSigmaGetter(params.nsigma),
+        SPOTGetter(params.spot),
+        DFSGetter(params.dfs),
+        MicroscopeGetter(params.micro_scope),
+        MicroHECLGetter(params.micro_hecl),
+        MicroCauseGetter(params.micro_cause),
+        CloudRangerGetter(params.cloud_ranger),
+        ENMFGetter(params.enmf),
+        CRDGetter(params.crd),
+        SRCAGetter(params.srca),
+        SRCADAGetter(params.srca_da),
     ]
 
     models: List[Model] = []
