@@ -90,6 +90,28 @@ class Params(ABC):
 
 
 @dataclasses.dataclass
+class OptionalParams(Params):
+    """
+    Optional parameters
+
+    Enable all options by default.
+    With any arguments provided, options that are not specified will be disabled.
+    """
+
+    def __init__(self, **kwargs):
+        # pylint: disable=super-init-not-called
+        if kwargs:
+            for field in dataclasses.fields(self):
+                if field.name in kwargs:
+                    setattr(self, field.name, field.type(**kwargs[field.name]))
+                else:
+                    setattr(self, field.name, None)
+        else:
+            for field in dataclasses.fields(self):
+                setattr(self, field.name, field.type())
+
+
+@dataclasses.dataclass
 class GraphFactoryParams(Params):
     """Parameters for graph factories"""
 
@@ -164,8 +186,8 @@ class StructuralGraphParams(GraphFactoryParams):
     """Parameters for structural graph construction"""
 
 
-@dataclasses.dataclass
-class GraphParams(Params):
+@dataclasses.dataclass(init=False)
+class GraphParams(OptionalParams):
     """Parameters for graph factories"""
 
     pc_gauss: PCGaussParams = dataclasses.field(
@@ -210,8 +232,8 @@ class SPOTParams(Params):
     )
 
 
-@dataclasses.dataclass
-class ADParams(Params):
+@dataclasses.dataclass(init=False)
+class ADParams(OptionalParams):
     """Parameters for anomaly detection scorers"""
 
     nsigma: NSigmaParams = dataclasses.field(
@@ -430,25 +452,7 @@ class ModelParams(ADParams):
             raise ValueError(
                 f"ModelParams requires dict or json dict, not {type(params)}"
             )
-        for key, value in params.items():
-            if not isinstance(value, dict):
-                raise ValueError(
-                    f"ModelParams requires dict for {key}, not {type(value)}"
-                )
-
-        for field in dataclasses.fields(self):
-            if field.name in params:
-                setattr(self, field.name, field.type(**params[field.name]))
-            else:
-                setattr(self, field.name, None)
-
-    @staticmethod
-    def create_full() -> "ModelParams":
-        """
-        Create an instance with all the parameters
-        """
-        methods = set(field.name for field in dataclasses.fields(ModelParams))
-        return ModelParams({method: {} for method in methods})
+        super().__init__(**params)
 
 
 ModelParams.__init__.__doc__ += indent(

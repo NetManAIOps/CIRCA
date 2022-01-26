@@ -655,7 +655,7 @@ def get_models(
         params: Specify options for model parameters
     """
     if params is None:
-        params = utils.ModelParams.create_full()
+        params = utils.ModelParams()
 
     graph_factory_params = dict(
         structural_graph_params=structural_graph_params, seed=seed
