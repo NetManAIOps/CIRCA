@@ -46,7 +46,7 @@ class _MDN(nn.Module):
         latent = self._base(data)
         alphas = F.softmax(self._alphas(latent), dim=-1)
         mus = self._mus(latent)
-        sigmas = F.elu(self._sigmas(latent)) + 1
+        sigmas = F.elu(self._sigmas(latent)) + 1 + 1e-6
         return alphas, mus, sigmas
 
 
