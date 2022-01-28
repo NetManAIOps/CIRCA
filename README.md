@@ -4,6 +4,8 @@
 
 ## Usage
 
+This repository contains a [Dockerfile](Dockerfile) to describe the necessary steps to setup the environment.
+
 ### Simulation Data Generation
 
 ```bash
