@@ -27,7 +27,6 @@ _GRAPH_SIZES: List[Tuple[int, int]] = [
     (50, 100),
     (100, 500),
     (500, 5000),
-    (1000, 10000),
 ]
 _NUM_NODES = [n for n, _ in _GRAPH_SIZES]
 _NUM_GRAPHS = 10
