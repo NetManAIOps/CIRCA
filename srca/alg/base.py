@@ -84,7 +84,7 @@ class Score:
         self.key = score.key
         return self
 
-    def asdict(self) -> Dict[str, float]:
+    def asdict(self) -> Dict[str, Union[float, dict, tuple]]:
         """
         Serialized as a dict
         """
