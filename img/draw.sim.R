@@ -1,22 +1,50 @@
 source("img/utils.R")
 
+loadReport <- function(dirName, size, numGraph = 10) {
+  report <- data.frame()
+  for (index in 0:(numGraph - 1)) {
+    report <- rbind(report, read.csv(sprintf("%s/report-%d-%d.csv", dirName, size, index)))
+  }
+  report <- extendMethod(report)
+  report$rankName <- as.factor(report$rankName)
+  report
+}
+
 simSummary <- function(dirName, outputFilename) {
-  columns <- c("AC.1", "AC.3", "AC.5", "avg.duration")
-  numGraph <- 10
+  columns <- c("AC.1", "AC.5", "avg.duration")
   reportList <- lapply(c(50, 100, 500), function(size) {
-    dfList <- lapply(0:(numGraph - 1), function(index) {
-      read.csv(sprintf("%s/report-%d-%d.csv", dirName, size, index))
-    })
-    avgReport(dfList, columns=columns)
+    report <- loadReport(dirName, size)
+    methods <- levels(report$rankName)
+    ret <- data.frame(method = methods)
+    for (column in columns) {
+      ret[, column] <- sapply(methods, function(method) {
+        values <- report[report$rankName == method, column]
+        sprintf("%s(%s)", formatFloat(mean(values)), formatFloat(sd(values), digits = 2))
+      })
+    }
+    ret
   })
 
-  methods <- reportList[[1]]$method
+  methods <- c(
+    "NSigma",
+    "SPOT",
+    "DFS",
+    "DFS-MS",
+    "DFS-MH",
+    "ENMF",
+    "CRD",
+    "RW-2",
+    "RW-Par",
+    "SRCA",
+    "Sim-SRCA",
+    "Ideal"
+  )
+  methods <- methods[methods %in% reportList[[1]]$method]
   reportList <- lapply(reportList, function(d) {
-    index <- sapply(d$method, function(k) {which(k == methods)})
+    index <- sapply(methods, function(method) {which(method == d$method)})
     d[index, ]
   })
-  report <- extendMethod(data.frame(method = methods))
-  report <- data.frame(method = report$rankName)
+  report <- data.frame(method = methods)
   for (r in reportList) {
      report <- cbind(report, r[, columns])
   }
@@ -24,7 +52,6 @@ simSummary <- function(dirName, outputFilename) {
 }
 
 simSignificance <- function(dirName) {
-  numGraph <- 10
   target <- "Sim-SRCA"
   baselines <- c(
     "NSigma",
@@ -40,12 +67,7 @@ simSignificance <- function(dirName) {
   )
   columns <- c("AC.1", "AC.3", "AC.5")
   for (size in c(50, 100, 500)) {
-    report <- data.frame()
-    for (index in 0:(numGraph - 1)) {
-      report <- rbind(report, read.csv(sprintf("%s/report-%d-%d.csv", dirName, size, index)))
-    }
-    report <- extendMethod(report)
-    report$rankName <- as.factor(report$rankName)
+    report <- loadReport(dirName, size)
     significance <- data.frame(method = baselines)
     for (column in columns) {
       targetValues <- report[report$rankName == target, column]

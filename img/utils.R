@@ -153,22 +153,3 @@ formatChooseBest <- function(filename, outputFilename, ...) {
   )
   print(xtable(report), file = outputFilename, include.rownames = FALSE)
 }
-
-avgReport <- function(dfList, columns) {
-  methods <- dfList[[1]]$method
-  num <- length(dfList)
-
-  ret <- data.frame(method = methods)
-  for (column in columns) {
-    value <- Reduce(
-      function(a, b) {a + b},
-      lapply(dfList, function(d) {
-        index <- sapply(d$method, function(k) {which(k == methods)})
-        d[index, column]
-      }),
-      0
-    )
-    ret[, column] <- formatFloat(value / num)
-  }
-  ret
-}
