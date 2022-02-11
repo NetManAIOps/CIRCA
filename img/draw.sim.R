@@ -35,8 +35,8 @@ simSummary <- function(dirName, outputFilename) {
     "CRD",
     "RW-2",
     "RW-Par",
-    "SRCA",
-    "Sim-SRCA",
+    "RHT",
+    "RHT-PG",
     "Ideal"
   )
   methods <- methods[methods %in% reportList[[1]]$method]
@@ -52,7 +52,7 @@ simSummary <- function(dirName, outputFilename) {
 }
 
 simSignificance <- function(dirName) {
-  target <- "Sim-SRCA"
+  target <- "RHT-PG"
   baselines <- c(
     "NSigma",
     "SPOT",
@@ -63,7 +63,7 @@ simSignificance <- function(dirName) {
     "CRD",
     "RW-2",
     "RW-Par",
-    "SRCA"
+    "RHT"
   )
   columns <- c("AC.1", "AC.3", "AC.5")
   for (size in c(50, 100, 500)) {

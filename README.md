@@ -27,5 +27,5 @@ Execute `Rscript img/draw.sim.R` to produce summaries under `img/output`.
 - `params-sim-run.json` is created according to `img/output/best-sim-tuning.tex`
 - To create parameter template, execute the following command
 ```bash
-python -m srca.experimen params > default.json
+python -m srca.experiment params > default.json
 ```

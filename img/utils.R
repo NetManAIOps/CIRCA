@@ -50,12 +50,10 @@ findGraphName <- function(graphMethod) {
 findRankName <- function(items) {
   size <- length(items)
   if (startsWith(items[1], "Structural")) {
-    params <- strsplit(items[1], "_")
-    method <- "SRCA"
     if (size == 1) {
-      method
+      "RHT"
     } else if (size == 2 && items[2] == "Structural") {
-      paste(method, "DA", sep = "-")
+      "CIRCA"
     } else {
       print(sprintf("Unknown method: %s", paste(items, collapse = "-")))
       "Unknown"
@@ -86,7 +84,12 @@ findRankName <- function(items) {
   } else if (startsWith(items[2], "RW_")) {
     "RW-Par"
   } else {
-    paste(items, collapse = "-")
+    rankName <- paste(items, collapse = "-")
+    if (rankName == "Sim-SRCA") {
+      "RHT-PG"
+    } else {
+      rankName
+    }
   }
 }
 
@@ -118,8 +121,8 @@ chooseBest <- function(filename, n = 2) {
     "RW-2",
     "ENMF",
     "CRD",
-    "SRCA",
-    "SRCA-DA"
+    "RHT",
+    "CIRCA"
   )
   d <- read.csv(filename)
   d <- extendMethod(d)
@@ -127,13 +130,13 @@ chooseBest <- function(filename, n = 2) {
   report <- data.frame()
   for (rankName in RANK_NAMES) {
     methodData <- d[d$rankName == rankName, ]
-    methodData <- methodData[order(methodData$AC.5, decreasing = TRUE),]
+    methodData <- methodData[order(methodData$AC.5, methodData$Avg.5, decreasing = TRUE),]
     report <- rbind(report, head(methodData, n = n))
   }
   for (rankName in levels(d$rankName)) {
     if (!(rankName %in% RANK_NAMES)) {
       methodData <- d[d$rankName == rankName, ]
-      methodData <- methodData[order(methodData$AC.5, decreasing = TRUE),]
+      methodData <- methodData[order(methodData$AC.5, methodData$Avg.5, decreasing = TRUE),]
       report <- rbind(report, head(methodData, n = n))
     }
   }
