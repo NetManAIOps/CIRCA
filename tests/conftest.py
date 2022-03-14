@@ -11,8 +11,8 @@ import networkx as nx
 
 import pytest
 
-from circa.alg.base import GraphFactory
-from circa.alg.common import StaticGraphFactory
+from circa.graph import GraphFactory
+from circa.graph.common import StaticGraphFactory
 from circa.model.case import CaseData
 from circa.model.data_loader import DataLoader
 from circa.model.data_loader import MemoryDataLoader

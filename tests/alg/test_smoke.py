@@ -5,7 +5,6 @@ from typing import Sequence
 
 import pytest
 
-from circa.alg.base import GraphFactory
 from circa.alg.base import Scorer
 from circa.alg.common import Model
 from circa.alg.common import NSigmaScorer
@@ -25,6 +24,7 @@ from circa.alg.structural.anm import ANMRegressor
 from circa.alg.structural.gmm import GMMRegressor
 from circa.alg.structural.gmm.mdn import MDNPredictor
 from circa.alg.structural.gmm.prob_rf import ProbRF
+from circa.graph import GraphFactory
 from circa.model.case import CaseData
 
 

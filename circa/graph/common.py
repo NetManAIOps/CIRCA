@@ -7,11 +7,35 @@ from typing import Tuple
 import networkx as nx
 import numpy as np
 
-from ..base import GraphFactory
-from ...model.case import CaseData
-from ...model.graph import Graph
-from ...model.graph import Node
-from ...model.graph import MemoryGraph
+from .base import GraphFactory
+from ..model.case import CaseData
+from ..model.graph import Graph
+from ..model.graph import Node
+from ..model.graph import MemoryGraph
+
+
+class EmptyGraphFactory(GraphFactory):
+    """
+    Create a graph with nodes only
+    """
+
+    def create(self, data: CaseData, current: float) -> Graph:
+        graph = nx.DiGraph()
+        graph.add_nodes_from(data.data_loader.nodes)
+        return MemoryGraph(graph)
+
+
+class StaticGraphFactory(GraphFactory):
+    """
+    Create the same graph
+    """
+
+    def __init__(self, graph: Graph, **kwargs):
+        super().__init__(**kwargs)
+        self._graph = graph
+
+    def create(self, data: CaseData, current: float) -> Graph:
+        return self._graph
 
 
 class DynamicGraphFactory(GraphFactory):

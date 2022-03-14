@@ -13,12 +13,12 @@ from typing import Tuple
 
 import networkx as nx
 
-from ..base import GraphFactory
-from ...model.case import CaseData
-from ...model.graph import Graph
-from ...model.graph import MemoryGraph
-from ...model.graph import Node
-from ...utils import load_csv
+from .base import GraphFactory
+from ..model.case import CaseData
+from ..model.graph import Graph
+from ..model.graph import MemoryGraph
+from ..model.graph import Node
+from ..utils import load_csv
 
 
 class MetricType(Enum):

@@ -11,10 +11,10 @@ from typing import List
 from typing import Set
 from typing import Tuple
 
-from ...alg.base import GraphFactory
 from ...alg.common import Evaluation
 from ...alg.common import Model
 from ...alg.common import evaluate
+from ...graph import GraphFactory
 from ...model.case import Case
 from ...utils import Timer
 from ...utils import dump_csv

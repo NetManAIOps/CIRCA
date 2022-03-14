@@ -13,8 +13,8 @@ from rpy2.robjects import default_converter
 from rpy2.robjects.conversion import localconverter
 
 from .utils import bcp
-from ..base import DynamicGraphFactory
-from ....model.graph import Node
+from ..common import DynamicGraphFactory
+from ...model.graph import Node
 
 
 robjects.r(f"source(\"{os.path.join(os.path.dirname(__file__), 'causal.R')}\")")

@@ -14,19 +14,17 @@ from typing import Sequence
 from typing import Set
 from typing import Tuple
 
-import networkx as nx
 import numpy as np
 from scipy.stats import norm
 from sklearn.preprocessing import StandardScaler
 
-from .base import GraphFactory
 from .base import Score
 from .base import Scorer
+from ..graph import GraphFactory
 from ..model.case import Case
 from ..model.case import CaseData
 from ..model.graph import Graph
 from ..model.graph import LoadingInvalidGraphException
-from ..model.graph import MemoryGraph
 from ..model.graph import Node
 from ..utils import dump_json
 from ..utils import load_json
@@ -59,30 +57,6 @@ def zscore_conf(score: float) -> float:
     Convert z-score into confidence about the hypothesis the score is abnormal
     """
     return 1 - 2 * norm.cdf(-abs(score))
-
-
-class EmptyGraphFactory(GraphFactory):
-    """
-    Create a graph with nodes only
-    """
-
-    def create(self, data: CaseData, current: float) -> Graph:
-        graph = nx.DiGraph()
-        graph.add_nodes_from(data.data_loader.nodes)
-        return MemoryGraph(graph)
-
-
-class StaticGraphFactory(GraphFactory):
-    """
-    Create the same graph
-    """
-
-    def __init__(self, graph: Graph, **kwargs):
-        super().__init__(**kwargs)
-        self._graph = graph
-
-    def create(self, data: CaseData, current: float) -> Graph:
-        return self._graph
 
 
 class DecomposableScorer(Scorer):

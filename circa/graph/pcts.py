@@ -11,8 +11,8 @@ from tigramite.independence_tests import ParCorr
 from tigramite.independence_tests.independence_tests_base import CondIndTest
 from tigramite.pcmci import PCMCI
 
-from .base import DynamicGraphFactory
-from ...model.graph import Node
+from .common import DynamicGraphFactory
+from ..model.graph import Node
 
 
 class _ParCorr(ParCorr):

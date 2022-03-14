@@ -11,9 +11,7 @@ from typing import Tuple
 from sklearn.svm import SVR
 
 from . import utils
-from ...alg.base import GraphFactory
 from ...alg.base import Scorer
-from ...alg.common import EmptyGraphFactory
 from ...alg.common import Model
 from ...alg.common import NSigmaScorer
 from ...alg.correlation import CorrelationScorer
@@ -23,8 +21,6 @@ from ...alg.invariant_network import ENMFScorer
 from ...alg.dfs import DFSScorer
 from ...alg.dfs import MicroHECLScorer
 from ...alg.evt import SPOTScorer
-from ...alg.graph.pcts import PCTSFactory
-from ...alg.graph.r import PCAlgFactory
 from ...alg.random_walk import RandomWalkScorer
 from ...alg.random_walk import SecondOrderRandomWalkScorer
 from ...alg.structural import StructuralRanker
@@ -32,7 +28,11 @@ from ...alg.structural import StructuralScorer
 from ...alg.structural.anm import ANMRegressor
 from ...alg.structural.gmm import GMMRegressor
 from ...alg.structural.gmm.mdn import MDNPredictor
-from ...alg.structural.graph import StructrualGraphFactory
+from ...graph import GraphFactory
+from ...graph.common import EmptyGraphFactory
+from ...graph.pcts import PCTSFactory
+from ...graph.r import PCAlgFactory
+from ...graph.structural import StructrualGraphFactory
 
 
 EMPTY_GRAPH_NAME = "Empty"

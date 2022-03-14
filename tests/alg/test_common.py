@@ -6,13 +6,13 @@ from scipy.stats import pearsonr
 
 import pytest
 
-from circa.alg.base import GraphFactory
 from circa.alg.common import DecomposableScorer
 from circa.alg.common import Evaluation
 from circa.alg.common import Model
 from circa.alg.common import NSigmaScorer
 from circa.alg.common import evaluate
 from circa.alg.common import pearson
+from circa.graph import GraphFactory
 from circa.model.case import Case
 from circa.model.case import CaseData
 from circa.model.graph import Graph
