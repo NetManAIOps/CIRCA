@@ -7,8 +7,8 @@ import numpy as np
 
 import pytest
 
-from srca.model.data_loader import DataLoader
-from srca.model.data_loader import MemoryDataLoader
+from circa.model.data_loader import DataLoader
+from circa.model.data_loader import MemoryDataLoader
 
 
 @pytest.mark.parametrize(

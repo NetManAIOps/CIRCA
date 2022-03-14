@@ -5,13 +5,13 @@ import numpy as np
 
 import pytest
 
-from srca.alg.base import GraphFactory
-from srca.alg.graph.pcts import PCTSFactory
-from srca.alg.graph.r import PCAlgFactory
-from srca.model.case import CaseData
-from srca.model.data_loader import MemoryDataLoader
-from srca.model.graph import Graph
-from srca.model.graph import Node
+from circa.alg.base import GraphFactory
+from circa.alg.graph.pcts import PCTSFactory
+from circa.alg.graph.r import PCAlgFactory
+from circa.model.case import CaseData
+from circa.model.data_loader import MemoryDataLoader
+from circa.model.graph import Graph
+from circa.model.graph import Node
 
 
 @pytest.mark.parametrize(

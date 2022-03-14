@@ -5,27 +5,27 @@ from typing import Sequence
 
 import pytest
 
-from srca.alg.base import GraphFactory
-from srca.alg.base import Scorer
-from srca.alg.common import Model
-from srca.alg.common import NSigmaScorer
-from srca.alg.correlation import CorrelationScorer
-from srca.alg.correlation import PartialCorrelationScorer
-from srca.alg.invariant_network import CRDScorer
-from srca.alg.invariant_network import ENMFScorer
-from srca.alg.invariant_network.enmf import InvariantNetwork
-from srca.alg.dfs import DFSScorer
-from srca.alg.dfs import MicroHECLScorer
-from srca.alg.evt import SPOTScorer
-from srca.alg.random_walk import RandomWalkScorer
-from srca.alg.random_walk import SecondOrderRandomWalkScorer
-from srca.alg.structural import StructuralRanker
-from srca.alg.structural import StructuralScorer
-from srca.alg.structural.anm import ANMRegressor
-from srca.alg.structural.gmm import GMMRegressor
-from srca.alg.structural.gmm.mdn import MDNPredictor
-from srca.alg.structural.gmm.prob_rf import ProbRF
-from srca.model.case import CaseData
+from circa.alg.base import GraphFactory
+from circa.alg.base import Scorer
+from circa.alg.common import Model
+from circa.alg.common import NSigmaScorer
+from circa.alg.correlation import CorrelationScorer
+from circa.alg.correlation import PartialCorrelationScorer
+from circa.alg.invariant_network import CRDScorer
+from circa.alg.invariant_network import ENMFScorer
+from circa.alg.invariant_network.enmf import InvariantNetwork
+from circa.alg.dfs import DFSScorer
+from circa.alg.dfs import MicroHECLScorer
+from circa.alg.evt import SPOTScorer
+from circa.alg.random_walk import RandomWalkScorer
+from circa.alg.random_walk import SecondOrderRandomWalkScorer
+from circa.alg.structural import StructuralRanker
+from circa.alg.structural import StructuralScorer
+from circa.alg.structural.anm import ANMRegressor
+from circa.alg.structural.gmm import GMMRegressor
+from circa.alg.structural.gmm.mdn import MDNPredictor
+from circa.alg.structural.gmm.prob_rf import ProbRF
+from circa.model.case import CaseData
 
 
 _in_params = dict(epoches=10, invariant_network=InvariantNetwork(n=1, m=1))

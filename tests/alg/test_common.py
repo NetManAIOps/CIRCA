@@ -6,17 +6,17 @@ from scipy.stats import pearsonr
 
 import pytest
 
-from srca.alg.base import GraphFactory
-from srca.alg.common import DecomposableScorer
-from srca.alg.common import Evaluation
-from srca.alg.common import Model
-from srca.alg.common import NSigmaScorer
-from srca.alg.common import evaluate
-from srca.alg.common import pearson
-from srca.model.case import Case
-from srca.model.case import CaseData
-from srca.model.graph import Graph
-from srca.model.graph import Node
+from circa.alg.base import GraphFactory
+from circa.alg.common import DecomposableScorer
+from circa.alg.common import Evaluation
+from circa.alg.common import Model
+from circa.alg.common import NSigmaScorer
+from circa.alg.common import evaluate
+from circa.alg.common import pearson
+from circa.model.case import Case
+from circa.model.case import CaseData
+from circa.model.graph import Graph
+from circa.model.graph import Node
 
 
 def test_parallel_decomposable_scorer(graph: Graph, case_data: CaseData):

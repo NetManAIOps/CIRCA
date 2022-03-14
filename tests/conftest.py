@@ -11,14 +11,14 @@ import networkx as nx
 
 import pytest
 
-from srca.alg.base import GraphFactory
-from srca.alg.common import StaticGraphFactory
-from srca.model.case import CaseData
-from srca.model.data_loader import DataLoader
-from srca.model.data_loader import MemoryDataLoader
-from srca.model.graph import Graph
-from srca.model.graph import MemoryGraph
-from srca.model.graph import Node
+from circa.alg.base import GraphFactory
+from circa.alg.common import StaticGraphFactory
+from circa.model.case import CaseData
+from circa.model.data_loader import DataLoader
+from circa.model.data_loader import MemoryDataLoader
+from circa.model.graph import Graph
+from circa.model.graph import MemoryGraph
+from circa.model.graph import Node
 
 
 @pytest.fixture

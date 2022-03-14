@@ -44,7 +44,7 @@ class Component:
             self._parallel = self.create_components(root, "parallel")
         else:
             sequential = {component.name for component in self._sequential}
-            self._parallel: List[Component] = []
+            self._parallel: List["Component"] = []
             for filename in os.listdir(root):
                 subdir = os.path.join(root, filename)
                 if os.path.isdir(subdir) and filename not in sequential:

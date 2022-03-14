@@ -53,7 +53,7 @@ class ARX:
 
         if moment_2 is None:
             moment_2 = y.shape[0] * y.var()
-        self._fitness: float = 1 - np.sqrt((residuals ** 2).sum() / moment_2)
+        self._fitness: float = 1 - np.sqrt((residuals**2).sum() / moment_2)
 
     @property
     def epsilon_max(self) -> float:
@@ -101,6 +101,7 @@ class InvariantNetwork:
     BROKEN_THRESHOLD = 1.1
 
     def __init__(self, n: int = 3, m: int = 2, k: int = 0):
+        # pylint: disable=invalid-name
         """
         (n, m) is the order of the ARX model
         """

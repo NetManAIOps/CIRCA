@@ -3,7 +3,7 @@ Test suites for alg.base
 """
 import random
 
-from srca.alg.base import Score
+from circa.alg.base import Score
 
 
 class TestScore:

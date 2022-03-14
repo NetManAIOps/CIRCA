@@ -8,12 +8,12 @@ from unittest.mock import patch
 
 import numpy as np
 
-from srca.alg.structural import StructuralScorer
-from srca.alg.structural.graph import Component
-from srca.alg.structural.graph import StructuralGraph
-from srca.model.case import CaseData
-from srca.model.graph import Graph
-from srca.model.graph import Node
+from circa.alg.structural import StructuralScorer
+from circa.alg.structural.graph import Component
+from circa.alg.structural.graph import StructuralGraph
+from circa.model.case import CaseData
+from circa.model.graph import Graph
+from circa.model.graph import Node
 
 
 class TestStructuralScorer:

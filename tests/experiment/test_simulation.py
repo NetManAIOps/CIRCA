@@ -6,8 +6,8 @@ import numpy as np
 
 import pytest
 
-from srca.experiment.simulation import generate
-from srca.experiment.simulation import generate_sedag
+from circa.experiment.simulation import generate
+from circa.experiment.simulation import generate_sedag
 
 
 @pytest.mark.parametrize(

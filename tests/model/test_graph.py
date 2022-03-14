@@ -3,8 +3,8 @@ Test suites for Graph
 """
 import networkx as nx
 
-from srca.model.graph import MemoryGraph
-from srca.model.graph import Node
+from circa.model.graph import MemoryGraph
+from circa.model.graph import Node
 
 
 class TestNode:

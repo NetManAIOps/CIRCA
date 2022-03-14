@@ -3,12 +3,12 @@ Test suites for DFSScorer
 """
 import networkx as nx
 
-from srca.alg.base import Score
-from srca.alg.dfs import DFSScorer
-from srca.model.case import CaseData
-from srca.model.graph import MemoryGraph
-from srca.model.graph import Graph
-from srca.model.graph import Node
+from circa.alg.base import Score
+from circa.alg.dfs import DFSScorer
+from circa.model.case import CaseData
+from circa.model.graph import MemoryGraph
+from circa.model.graph import Graph
+from circa.model.graph import Node
 
 
 def test_dfs_scorer(graph: Graph, case_data: CaseData):

@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from srca.utils import Timeout
+from circa.utils import Timeout
 
 
 def test_timeout():

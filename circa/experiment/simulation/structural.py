@@ -7,9 +7,9 @@ from typing import Tuple
 
 import numpy as np
 
-from srca.alg.structural import StructuralScorer
-from srca.model.case import CaseData
-from srca.model.graph import Node
+from ...alg.structural import StructuralScorer
+from ...model.case import CaseData
+from ...model.graph import Node
 
 
 class SimStructuralScorer(StructuralScorer):
