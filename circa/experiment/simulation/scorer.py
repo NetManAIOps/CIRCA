@@ -1,5 +1,5 @@
 """
-SRCA with the ground truth graph in the simulation dataset
+Scorers with the ground truth graph in the simulation dataset
 """
 from typing import Dict
 from typing import Sequence
@@ -7,14 +7,14 @@ from typing import Tuple
 
 import numpy as np
 
-from ...alg.structural import StructuralScorer
+from ...alg.ci import RHTScorer
 from ...model.case import CaseData
 from ...model.graph import Node
 
 
-class SimStructuralScorer(StructuralScorer):
+class SimRHTScorer(RHTScorer):
     """
-    Update StructuralScorer with the ground truth parents in the simulation dataset
+    Update RHTScorer with the ground truth parents in the simulation dataset
         Pa(V_{i}^{(t)}) = Pa^{(t)}(V_{i}^{t}) \\cup {V_{i}^{(t - 1)}}
     """
 

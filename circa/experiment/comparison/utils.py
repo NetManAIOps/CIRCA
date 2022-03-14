@@ -376,8 +376,8 @@ class CRDParams(InvariantNetworkParams):
 
 
 @dataclasses.dataclass
-class StructuralParams(ScorerParams):
-    """Parameters for structural scorers"""
+class CIParams(ScorerParams):
+    """Parameters for causal inference-based scorers"""
 
     tau_max: Tuple[int, ...] = dataclasses.field(
         default=_TAU_MAXS,
@@ -395,13 +395,13 @@ class StructuralParams(ScorerParams):
 
 
 @dataclasses.dataclass
-class SRCAParams(StructuralParams):
-    """Parameters for SRCA"""
+class RHTParams(CIParams):
+    """Parameters for RHT"""
 
 
 @dataclasses.dataclass
-class SRCADAParams(StructuralParams):
-    """Parameters for SRCA-DA"""
+class RHTDAParams(CIParams):
+    """Parameters for RHT-DA"""
 
 
 @dataclasses.dataclass
@@ -432,10 +432,10 @@ class ModelParams(ADParams):
     crd: CRDParams = dataclasses.field(
         default=None, metadata={Params.IS_ITERABLE: False}
     )
-    srca: SRCAParams = dataclasses.field(
+    rht: RHTParams = dataclasses.field(
         default=None, metadata={Params.IS_ITERABLE: False}
     )
-    srca_da: SRCADAParams = dataclasses.field(
+    rht_da: RHTDAParams = dataclasses.field(
         default=None, metadata={Params.IS_ITERABLE: False}
     )
 

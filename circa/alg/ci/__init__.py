@@ -1,5 +1,5 @@
 """
-Structural Root Cause Analysis (SRCA) based on Structual Causal Model (SCM)
+Causal Inference-based Root Cause Analysis (CIRCA)
 """
 from typing import Callable
 from typing import Dict
@@ -19,9 +19,9 @@ from ...model.graph import Graph
 from ...model.graph import Node
 
 
-class StructuralScorer(DecomposableScorer):
+class RHTScorer(DecomposableScorer):
     """
-    Scorer based on SCM
+    Scorer with regression-based hypothesis testing
     """
 
     def __init__(
@@ -101,9 +101,9 @@ class StructuralScorer(DecomposableScorer):
         return score
 
 
-class StructuralRanker(Scorer):
+class DAScorer(Scorer):
     """
-    Rank based on SCM
+    Scorer with descendant adjustment
     """
 
     def __init__(

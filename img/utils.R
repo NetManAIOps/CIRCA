@@ -49,10 +49,12 @@ findGraphName <- function(graphMethod) {
 
 findRankName <- function(items) {
   size <- length(items)
-  if (startsWith(items[1], "Structural")) {
+  if (startsWith(items[1], "RHT")) {
     if (size == 1) {
       "RHT"
-    } else if (size == 2 && items[2] == "Structural") {
+    } else if (size == 2 && items[2] == "PG") {
+      "RHT-PG"
+    }  else if (size == 2 && items[2] == "DA") {
       "CIRCA"
     } else {
       print(sprintf("Unknown method: %s", paste(items, collapse = "-")))
@@ -85,11 +87,7 @@ findRankName <- function(items) {
     "RW-Par"
   } else {
     rankName <- paste(items, collapse = "-")
-    if (rankName == "Sim-SRCA") {
-      "RHT-PG"
-    } else {
-      rankName
-    }
+    rankName
   }
 }
 

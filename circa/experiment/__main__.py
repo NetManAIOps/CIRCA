@@ -18,7 +18,7 @@ from .comparison.utils import ModelParams
 from .simulation import SimDataset
 from .simulation import generate
 from .simulation import robustness
-from .simulation.structural import SimStructuralScorer
+from .simulation.scorer import SimRHTScorer
 from ..alg.common import Model
 from ..utils import silence_third_party
 
@@ -118,16 +118,14 @@ def _run(args: argparse.Namespace):
                 cuda=args.cuda,
                 max_workers=args.max_workers,
             )
-            if model_params.srca:
+            if model_params.rht:
                 models.append(
                     Model(
                         graph_factory=dataset.graph_factory,
                         scorers=[
-                            SimStructuralScorer(
-                                seed=args.seed, max_workers=args.max_workers
-                            )
+                            SimRHTScorer(seed=args.seed, max_workers=args.max_workers)
                         ],
-                        names=["GT", "Sim-SRCA"],
+                        names=["GT", "RHT-PG"],
                     ),
                 )
             logger.info("Start running on %s", dataset_dir)

@@ -18,12 +18,12 @@ from circa.alg.dfs import MicroHECLScorer
 from circa.alg.evt import SPOTScorer
 from circa.alg.random_walk import RandomWalkScorer
 from circa.alg.random_walk import SecondOrderRandomWalkScorer
-from circa.alg.structural import StructuralRanker
-from circa.alg.structural import StructuralScorer
-from circa.alg.structural.anm import ANMRegressor
-from circa.alg.structural.gmm import GMMRegressor
-from circa.alg.structural.gmm.mdn import MDNPredictor
-from circa.alg.structural.gmm.prob_rf import ProbRF
+from circa.alg.ci import DAScorer
+from circa.alg.ci import RHTScorer
+from circa.alg.ci.anm import ANMRegressor
+from circa.alg.ci.gmm import GMMRegressor
+from circa.alg.ci.gmm.mdn import MDNPredictor
+from circa.alg.ci.gmm.prob_rf import ProbRF
 from circa.graph import GraphFactory
 from circa.model.case import CaseData
 
@@ -45,12 +45,12 @@ _in_params = dict(epoches=10, invariant_network=InvariantNetwork(n=1, m=1))
         ((CorrelationScorer(), SecondOrderRandomWalkScorer()),),
         (
             (
-                StructuralScorer(regressor=ANMRegressor()),
-                StructuralRanker(threshold=3),
+                RHTScorer(regressor=ANMRegressor()),
+                DAScorer(threshold=3),
             ),
         ),
-        ((StructuralScorer(regressor=GMMRegressor(regressor=ProbRF())),),),
-        ((StructuralScorer(regressor=GMMRegressor(regressor=MDNPredictor())),),),
+        ((RHTScorer(regressor=GMMRegressor(regressor=ProbRF())),),),
+        ((RHTScorer(regressor=GMMRegressor(regressor=MDNPredictor())),),),
     ],
 )
 def test_smoke(

@@ -1,5 +1,5 @@
 """
-Test suites for Structural Root Cause Analysis
+Test suites for Causal Inference-based Root Cause Analysis
 """
 from typing import Dict
 from typing import Sequence
@@ -7,15 +7,15 @@ from unittest.mock import patch
 
 import numpy as np
 
-from circa.alg.structural import StructuralScorer
+from circa.alg.ci import RHTScorer
 from circa.model.case import CaseData
 from circa.model.graph import Graph
 from circa.model.graph import Node
 
 
-class TestStructuralScorer:
+class TestRHTScorer:
     """
-    Test cases for StructuralScorer
+    Test cases for RHTScorer
     """
 
     _node = Node("DB", "Latency")
@@ -26,9 +26,9 @@ class TestStructuralScorer:
         self, mock_data: Dict[Node, Sequence[float]], case_data: CaseData
     ):
         """
-        Test StructuralScorer.split_data
+        Test RHTScorer.split_data
         """
-        scorer = StructuralScorer(tau_max=0)
+        scorer = RHTScorer(tau_max=0)
         train_x, test_x, train_y, test_y = scorer.split_data(
             mock_data, self._node, self._parents, case_data
         )
@@ -37,7 +37,7 @@ class TestStructuralScorer:
         assert np.allclose(test_x, np.array([[200, 150], [90, 85]]).T)
         assert np.allclose(test_y, np.array([100, 90]))
 
-        scorer = StructuralScorer(tau_max=1)
+        scorer = RHTScorer(tau_max=1)
         train_x, test_x, train_y, test_y = scorer.split_data(
             mock_data, self._node, self._parents, case_data
         )
@@ -60,9 +60,9 @@ class TestStructuralScorer:
         self, graph: Graph, case_data: CaseData, mock_data: Dict[Node, Sequence[float]]
     ):
         """
-        Test StructuralScorer.score_node
+        Test RHTScorer.score_node
         """
-        scorer = StructuralScorer()
+        scorer = RHTScorer()
         score_parents = scorer.score_node(graph, mock_data, self._node, case_data)
         with patch.object(graph, "parents") as mock_parents:
             mock_parents.return_value = []

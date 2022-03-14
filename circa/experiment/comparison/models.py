@@ -23,11 +23,11 @@ from ...alg.dfs import MicroHECLScorer
 from ...alg.evt import SPOTScorer
 from ...alg.random_walk import RandomWalkScorer
 from ...alg.random_walk import SecondOrderRandomWalkScorer
-from ...alg.structural import StructuralRanker
-from ...alg.structural import StructuralScorer
-from ...alg.structural.anm import ANMRegressor
-from ...alg.structural.gmm import GMMRegressor
-from ...alg.structural.gmm.mdn import MDNPredictor
+from ...alg.ci import DAScorer
+from ...alg.ci import RHTScorer
+from ...alg.ci.anm import ANMRegressor
+from ...alg.ci.gmm import GMMRegressor
+from ...alg.ci.gmm.mdn import MDNPredictor
 from ...graph import GraphFactory
 from ...graph.common import EmptyGraphFactory
 from ...graph.pcts import PCTSFactory
@@ -563,12 +563,12 @@ class CRDGetter(ModelGetter):
         ]
 
 
-class StructuralModelGetter(ScorerModelGetter):
+class CIModelGetter(ScorerModelGetter):
     """
-    Get structural models
+    Get causal inference-based models
     """
 
-    def __init__(self, params: utils.StructuralParams):
+    def __init__(self, params: utils.CIParams):
         super().__init__(params=params)
         self._params = params
 
@@ -593,9 +593,9 @@ class StructuralModelGetter(ScorerModelGetter):
                     )
 
 
-class SRCAGetter(StructuralModelGetter):
+class RHTGetter(CIModelGetter):
     """
-    Get SRCA models
+    Get RHT models
     """
 
     def _get(
@@ -606,8 +606,8 @@ class SRCAGetter(StructuralModelGetter):
         return [
             Model(
                 graph_factory=graph_factory,
-                scorers=[StructuralScorer(**params)],
-                names=(graph_name, "Structural" + suffix),
+                scorers=[RHTScorer(**params)],
+                names=(graph_name, "RHT" + suffix),
             )
             for graph_factory, graph_name, suffix, params in self._get_model_base(
                 graph_factories=graph_factories, **scorer_params
@@ -615,9 +615,9 @@ class SRCAGetter(StructuralModelGetter):
         ]
 
 
-class SRCADAGetter(StructuralModelGetter):
+class RHTDAGetter(CIModelGetter):
     """
-    Get SRCA-DA models
+    Get RHT-DA models
     """
 
     def _get(
@@ -627,12 +627,12 @@ class SRCADAGetter(StructuralModelGetter):
     ) -> List[Model]:
         # The three-sigma rule of thumb, as use_confidence=False by default
         threshold = 3
-        ranker = StructuralRanker(threshold=threshold)
+        ranker = DAScorer(threshold=threshold)
         return [
             Model(
                 graph_factory=graph_factory,
-                scorers=[StructuralScorer(**params), ranker],
-                names=(graph_name, "Structural" + suffix, "Structural"),
+                scorers=[RHTScorer(**params), ranker],
+                names=(graph_name, "RHT" + suffix, "DA"),
             )
             for graph_factory, graph_name, suffix, params in self._get_model_base(
                 graph_factories=graph_factories, **scorer_params
@@ -676,8 +676,8 @@ def get_models(
         CloudRangerGetter(params.cloud_ranger),
         ENMFGetter(params.enmf),
         CRDGetter(params.crd),
-        SRCAGetter(params.srca),
-        SRCADAGetter(params.srca_da),
+        RHTGetter(params.rht),
+        RHTDAGetter(params.rht_da),
     ]
 
     models: List[Model] = []
