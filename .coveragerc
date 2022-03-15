@@ -1,3 +1,7 @@
 [run]
-command_line=-m pytest --doctest-modules circa/ tests/
+command_line=-m pytest
+    --benchmark-skip
+    --disable-pytest-warnings
+    --doctest-modules
+    circa/ tests/
 source=circa/

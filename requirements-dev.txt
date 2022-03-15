@@ -5,3 +5,4 @@ pylint
 
 coverage
 pytest
+pytest-benchmark

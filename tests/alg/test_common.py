@@ -5,6 +5,7 @@ import numpy as np
 from scipy.stats import pearsonr
 
 import pytest
+from pytest_benchmark.fixture import BenchmarkFixture
 
 from circa.alg.common import DecomposableScorer
 from circa.alg.common import Evaluation
@@ -12,6 +13,7 @@ from circa.alg.common import Model
 from circa.alg.common import NSigmaScorer
 from circa.alg.common import evaluate
 from circa.alg.common import pearson
+from circa.experiment.simulation import generate
 from circa.graph import GraphFactory
 from circa.model.case import Case
 from circa.model.case import CaseData
@@ -28,6 +30,41 @@ def test_parallel_decomposable_scorer(graph: Graph, case_data: CaseData):
     result_single = NSigmaScorer(max_workers=1).score(**params)
     result_multiple = NSigmaScorer(max_workers=2).score(**params)
     assert result_single == result_multiple
+
+
+def _decomposable_score(
+    data: CaseData, graph_factory: GraphFactory, max_workers: int, delay: int = 300
+):
+    current = data.detect_time + delay
+    graph = graph_factory.create(data=data, current=current)
+    scorer = NSigmaScorer(max_workers=max_workers)
+    _ = scorer.score(graph=graph, data=data, current=current)
+
+
+@pytest.mark.parametrize(
+    ("max_workers", "num_node", "num_edge"),
+    [
+        (1, 100, 500),
+        (2, 100, 500),
+        (1, 500, 5000),
+        (2, 500, 5000),
+    ],
+)
+def test_multiple_processing(
+    benchmark: BenchmarkFixture, max_workers: int, num_node: int, num_edge: int
+):
+    """
+    Compare DecomposableScorer with different max_workers
+    """
+    dataset = generate(
+        num_node=num_node, num_edge=num_edge, num_cases=1, rng=np.random.default_rng(0)
+    )
+    benchmark(
+        _decomposable_score,
+        data=dataset.cases[0].data,
+        graph_factory=dataset.graph_factory,
+        max_workers=max_workers,
+    )
 
 
 def test_pearson(size: int = 10):
