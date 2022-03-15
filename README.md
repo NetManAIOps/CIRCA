@@ -5,6 +5,7 @@
 ## Usage
 
 This repository contains a [Dockerfile](Dockerfile) to describe the necessary steps to setup the environment.
+To install this project as a package with `pip`, R package [pcalg](build/requirements.R) has to be installed manually.
 
 ### Simulation Data Generation
 
@@ -18,7 +19,7 @@ python -m circa.experiment generate
 # Explore parameter combinations
 python -m circa.experiment --max-workers 16 --model-params params-sim-tune.json tune
 # Explore all the datasets with pre-defined parameters
-python -m circa.experiment --max-workers 16 --model-params params-sim-run.json tune
+python -m circa.experiment --model-params params-sim-run.json run
 # Robustness evaluation
 python -m circa.experiment robustness
 ```

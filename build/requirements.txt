@@ -9,5 +9,5 @@ pytorch-lightning
 rpy2
 scipy
 scikit-learn
-tigramite
+tigramite < 5
 torch
