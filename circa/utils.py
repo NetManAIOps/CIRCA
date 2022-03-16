@@ -5,11 +5,14 @@ import csv
 import datetime
 import json
 import logging
+import os
 import signal
 from typing import Callable
 from typing import Sequence
 from typing import TypeVar
 import warnings
+
+import yaml
 
 
 try:
@@ -167,3 +170,31 @@ def load_json(filename: str):
     """
     with open(filename, encoding=ENCODING) as obj:
         return json.load(obj)
+
+
+class YamlComposeLoader(yaml.SafeLoader):
+    # pylint: disable=too-many-ancestors
+    """
+    Equip yaml.SafeLoader with the "!include" tag
+    """
+
+    @classmethod
+    def load(cls, filename: str) -> dict:
+        """
+        Load from file
+        """
+        with open(filename, encoding=ENCODING) as obj:
+            return yaml.load(obj, cls)
+
+    @staticmethod
+    def include(loader: yaml.Loader, node: yaml.Node):
+        """
+        Handle the "!include" tag
+        """
+        filename = os.path.join(
+            os.path.dirname(loader.name), loader.construct_scalar(node)
+        )
+        return YamlComposeLoader.load(filename)
+
+
+YamlComposeLoader.add_constructor("!include", YamlComposeLoader.include)

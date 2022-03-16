@@ -6,6 +6,7 @@ numpy
 pandas
 pingouin
 pytorch-lightning
+PyYAML
 rpy2
 scipy
 scikit-learn
