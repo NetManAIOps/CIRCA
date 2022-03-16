@@ -8,7 +8,10 @@ import logging
 import os
 import signal
 from typing import Callable
+from typing import Iterator
+from typing import List
 from typing import Sequence
+from typing import Set
 from typing import TypeVar
 import warnings
 
@@ -198,3 +201,26 @@ class YamlComposeLoader(yaml.SafeLoader):
 
 
 YamlComposeLoader.add_constructor("!include", YamlComposeLoader.include)
+
+
+def topological_sort(
+    nodes: Set[_Template],
+    predecessors: Callable[[_Template], Iterator[_Template]],
+    successors: Callable[[_Template], Iterator[_Template]],
+) -> List[Set[_Template]]:
+    """
+    Sort nodes with predecessors first
+    """
+    degrees = {node: len(set(predecessors(node))) for node in nodes}
+
+    nodes: List[set] = []
+    while degrees:
+        minimum = min(degrees.values())
+        node_set = {node for node, degree in degrees.items() if degree == minimum}
+        nodes.append(node_set)
+        for node in node_set:
+            degrees.pop(node)
+            for successor in successors(node):
+                if successor in degrees:
+                    degrees[successor] -= 1
+    return nodes
