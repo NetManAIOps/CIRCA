@@ -10,7 +10,7 @@ import pytest
 from circa.graph import GraphFactory
 from circa.graph.pcts import PCTSFactory
 from circa.graph.r import PCAlgFactory
-from circa.graph.structural import Component
+from circa.graph.structural import Config
 from circa.graph.structural import StructuralGraph
 from circa.model.case import CaseData
 from circa.model.data_loader import MemoryDataLoader
@@ -51,32 +51,42 @@ class TestStructuralGraph:
     Test cases for structural graph
     """
 
-    _GRAPH_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "sgraph")
+    _GRAPH_FILENAME = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), "sgraph", "index.yml"
+    )
     _GRAPH = {
-        "query_per_second": {"response_time", "error_rate", "transaction_per_second"},
-        "response_time": {"error_rate"},
-        "error_rate": set(),
-        "transaction_per_second": {"db_time", "table_space", "error_rate"},
-        "db_time": {"response_time", "response_time", "error_rate"},
-        "table_space": {"db_time", "error_rate"},
+        Node("WEB", "query_per_second"): {
+            Node("WEB", "response_time"),
+            Node("WEB", "error_rate"),
+            Node("DB", "transaction_per_second"),
+        },
+        Node("WEB", "response_time"): {Node("WEB", "error_rate")},
+        Node("WEB", "error_rate"): set(),
+        Node("DB", "transaction_per_second"): {
+            Node("DB", "db_time"),
+            Node("DB", "table_space"),
+            Node("WEB", "error_rate"),
+        },
+        Node("DB", "db_time"): {
+            Node("WEB", "response_time"),
+            Node("WEB", "error_rate"),
+        },
+        Node("DB", "table_space"): {Node("DB", "db_time"), Node("WEB", "error_rate")},
     }
     _METRICS = set(_GRAPH.keys())
 
-    def test_component(self):
+    def test_config(self):
         """
-        Component shall load metrics and sub-components
+        Config shall load components
         """
-        component = Component(self._GRAPH_DIR, "mock")
-        assert len(component.parallel) == 1
-        sub_component = component.parallel[0]
-        assert sub_component.name == "DB"
-        assert set(component.list_metrics()) == self._METRICS
+        config = Config(self._GRAPH_FILENAME)
+        assert len(config.components) == 2
 
     def test_structural_graph(self):
         """
         StructuralGraph shall create graph among metrics
         """
-        sgraph = StructuralGraph(self._GRAPH_DIR, "mock")
+        sgraph = StructuralGraph(filename=self._GRAPH_FILENAME)
         graph = sgraph.visit()
         assert set(graph.nodes) == self._METRICS
         for metric, children in self._GRAPH.items():
