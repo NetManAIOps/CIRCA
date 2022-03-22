@@ -1,5 +1,5 @@
 """
-Test suites for Causal Inference-based Root Cause Analysis
+Test suites for Regression-based Hypothesis Testing
 """
 from typing import Dict
 from typing import Sequence
