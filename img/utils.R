@@ -4,8 +4,20 @@ library(xtable)
 WIDTH <- 5
 HEIGHT <- 3
 
-dumpPlot <- function(filename, g, width = WIDTH, height = HEIGHT) {
-  ggsave(filename, g, width = width, height = height)
+BASELINE <- c(
+  "NSigma",
+  "SPOT",
+  "DFS",
+  "DFS-MS",
+  "DFS-MH",
+  "RW-Par",
+  "RW-2",
+  "ENMF",
+  "CRD"
+)
+
+dumpPlot <- function(filename, g, width = WIDTH, height = HEIGHT, ...) {
+  ggsave(filename, g, width = width, height = height, ...)
 }
 
 addStyle <- function(g) {
@@ -110,15 +122,7 @@ extendMethod <- function(d) {
 
 chooseBest <- function(filename, n = 2) {
   RANK_NAMES <- c(
-    "NSigma",
-    "SPOT",
-    "DFS",
-    "DFS-MS",
-    "DFS-MH",
-    "RW-Par",
-    "RW-2",
-    "ENMF",
-    "CRD",
+    BASELINE,
     "RHT",
     "CIRCA"
   )

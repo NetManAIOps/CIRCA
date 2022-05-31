@@ -26,15 +26,7 @@ simSummary <- function(dirName, outputFilename) {
   })
 
   methods <- c(
-    "NSigma",
-    "SPOT",
-    "DFS",
-    "DFS-MS",
-    "DFS-MH",
-    "ENMF",
-    "CRD",
-    "RW-2",
-    "RW-Par",
+    BASELINE,
     "RHT",
     "RHT-PG",
     "Ideal"
@@ -54,15 +46,7 @@ simSummary <- function(dirName, outputFilename) {
 simSignificance <- function(dirName) {
   target <- "RHT-PG"
   baselines <- c(
-    "NSigma",
-    "SPOT",
-    "DFS",
-    "DFS-MS",
-    "DFS-MH",
-    "ENMF",
-    "CRD",
-    "RW-2",
-    "RW-Par",
+    BASELINE,
     "RHT"
   )
   columns <- c("AC.1", "AC.3", "AC.5")
