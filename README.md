@@ -2,6 +2,9 @@
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+This project contains the code of baselines and simulation data generation for the KDD '22 paper, [Causal Inference-Based Root Cause Analysis for Online Service Systems with Intervention Recognition](https://doi.org/10.1145/3534678.3539041).
+Experiment results can be found in [figshare](https://doi.org/10.6084/m9.figshare.19085855), where the code is corresponding to the commit 1522ddd7efd16db55e9f351fd70324501ce9134e.
+
 ## Usage
 
 This repository contains a [Dockerfile](Dockerfile) to describe the necessary steps to setup the environment.
