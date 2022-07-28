@@ -13,8 +13,8 @@ with open(
 
 
 setuptools.setup(
-    name="ci-rca",
-    version="0.0.1",
+    name="circa-clue",
+    version="0.0.2",
     author="limjcst",
     author_email="limjcst@163.com",
     description="Causal Inference-based Root Cause Analysis",
@@ -29,5 +29,7 @@ setuptools.setup(
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "Operating System :: OS Independent",
+        "License :: OSI Approved :: BSD License",
     ],
+    license="BSD 3-Clause License",
 )
