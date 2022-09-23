@@ -17,7 +17,9 @@ from ..common import DynamicGraphFactory
 from ...model.graph import Node
 
 
-robjects.r(f"source(\"{os.path.join(os.path.dirname(__file__), 'causal.R')}\")")
+robjects.r(
+    f"source(\"{os.path.dirname(__file__).replace(os.path.sep, '/')}/causal.R\")"
+)
 
 
 class PCAlgFactory(DynamicGraphFactory):

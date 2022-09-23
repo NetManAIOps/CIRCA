@@ -3,6 +3,7 @@ Test suites for the comparison experiment
 """
 import logging
 import os
+import sys
 
 import pytest
 
@@ -13,6 +14,10 @@ from circa.model.case import Case
 from circa.model.case import CaseData
 
 
+@pytest.mark.skipif(
+    (sys.version_info.major, sys.version_info.minor) < (3, 8),
+    reason="The force argument of logging.basicConfig was added in version 3.8",
+)
 @pytest.mark.parametrize(("max_workers",), [(1,), (2,)])
 def test_logging(
     max_workers: int, case_data: CaseData, tempdir: str, capfd: pytest.CaptureFixture

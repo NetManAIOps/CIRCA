@@ -7,10 +7,12 @@ import networkx as nx
 
 import pytest
 
+from circa.utils import _HAS_SIGALRM
 from circa.utils import Timeout
 from circa.utils import topological_sort
 
 
+@pytest.mark.skipif(not _HAS_SIGALRM, reason="signal.SIGALRM is unavailable")
 def test_timeout():
     """
     Timeout shall terminate the inside task after the given time

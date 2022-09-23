@@ -46,9 +46,7 @@ class _ParCorr(ParCorr):
             indexes: np.ndarray = np.where(std)[0]
             z = z[indexes, :] / std[indexes].reshape(-1, 1)
             if np.isnan(array).sum() != 0:
-                raise ValueError(
-                    "nans after standardizing, " "possibly constant array!"
-                )
+                raise ValueError("nans after standardizing, possibly constant array!")
 
         if z.shape[0] > 0:
             z = z.T

@@ -111,7 +111,7 @@ class Timeout:
 
     Exemples:
     >>> import time
-    >>> with Timeout(seconds=3):
+    >>> with Timeout(seconds=3):  # doctest: +SKIP
     ...     time.sleep(4)
     Traceback (most recent call last):
         ...
@@ -144,7 +144,7 @@ def dump_csv(filename: str, data: Sequence[Sequence], headers: Sequence[str] = N
     """
     Dump data into a csv file
     """
-    with open(filename, "w", encoding=ENCODING) as obj:
+    with open(filename, "w", encoding=ENCODING, newline="") as obj:
         writer = csv.writer(obj)
         if headers is not None:
             writer.writerow(headers)
