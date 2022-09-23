@@ -154,6 +154,7 @@ from typing import List
 from circa.experiment import comparison
 from circa.experiment.comparison.models import get_models
 from circa.experiment.__main__ import get_parser
+from circa.graph.structural import StructuralGraph
 from circa.model.case import Case
 from circa.utils import silence_third_party
 
@@ -176,6 +177,10 @@ def run(args: argparse.Namespace):
     cases: List[Case] = []
 
     models, graph_factories = get_models(
+        # TODO: Configure your own structural graph here
+        # structural_graph_params=dict(
+        #     structural_graph=StructuralGraph(filename="tests/alg/sgraph/index.yml"),
+        # ),
         params=args.model_params,
         seed=args.seed,
         cuda=args.cuda,

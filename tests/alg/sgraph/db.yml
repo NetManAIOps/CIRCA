@@ -1,0 +1,12 @@
+name: DB
+mappings:
+  # mappings is a mapping from one variable to meta variables
+  transaction_per_second:
+  - type: T
+    component: DB
+  db_time:
+  - type: L
+    component: DB
+  table_space:
+  - type: S
+    component: DB

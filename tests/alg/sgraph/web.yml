@@ -1,0 +1,16 @@
+name: WEB
+dependencies:
+  # dependencies is a mapping from one caller to its callees
+  WEB:
+  - DB
+mappings:
+  # mappings is a mapping from one variable to meta variables
+  query_per_second:
+  - type: T
+    component: WEB
+  response_time:
+  - type: L
+    component: WEB
+  error_rate:
+  - type: E
+    component: WEB

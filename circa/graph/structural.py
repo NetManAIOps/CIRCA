@@ -1,15 +1,13 @@
 """
 Structral graph
 """
-from collections import Counter
-from enum import Enum
+import dataclasses
 from itertools import chain
 from itertools import product
-import os
+import logging
 from typing import Dict
 from typing import List
 from typing import Set
-from typing import Tuple
 
 import networkx as nx
 
@@ -18,335 +16,309 @@ from ..model.case import CaseData
 from ..model.graph import Graph
 from ..model.graph import MemoryGraph
 from ..model.graph import Node
-from ..utils import load_csv
+from ..utils import YamlComposeLoader
+from ..utils import topological_sort
 
 
-class MetricType(Enum):
+@dataclasses.dataclass
+class MetaVariable:
     """
-    Metric types
-    """
-
-    TRAFFIC = "T"
-    SATURATION = "S"
-    ERROR = "E"
-    LATENCY = "L"
-
-
-class Component:
-    """
-    Node in StructuralGraph
+    MetaVariable includes the following information
+    - type: The meta variable type
+    - component: Name of the component
     """
 
-    def __init__(self, root: str, name: str):
-        self._name = name
-        self._sequential = self.create_components(root, "sequential")
-        if os.path.isfile(os.path.join(root, "parallel")):
-            self._parallel = self.create_components(root, "parallel")
-        else:
-            sequential = {component.name for component in self._sequential}
-            self._parallel: List["Component"] = []
-            for filename in os.listdir(root):
-                subdir = os.path.join(root, filename)
-                if os.path.isdir(subdir) and filename not in sequential:
-                    self._parallel.append(Component(subdir, filename))
+    type: str = dataclasses.field(default_factory=str)
+    component: str = dataclasses.field(default_factory=str)
 
-        metrics: Dict[MetricType, Set[str]] = {kind: set() for kind in MetricType}
-        metric_list = os.path.join(root, "metric.csv")
-        if os.path.isfile(metric_list):
-            for row in load_csv(metric_list):
-                if len(row) != 2:
-                    continue
-                metric, kind = row
-                try:
-                    kind = MetricType(kind)
-                    metrics[kind].add(metric)
-                except ValueError:
-                    pass
-        self._metrics = metrics
+    def __hash__(self) -> int:
+        return hash((self.type, self.component))
 
-        self._id = id(self)
 
-    @property
-    def identity(self) -> int:
-        """
-        Identity
-        """
-        return self._id
+@dataclasses.dataclass
+class ComponentConfig:
+    """
+    ComponentConfig includes the following information
+    - name: Name of the component
+    - dependencies: A mapping from one caller to its callees, and
+    - mappings: A mapping from one variable to meta variables
+    """
 
-    @property
-    def _traffic(self):
-        return (self._id, MetricType.TRAFFIC)
+    name: str = dataclasses.field(default_factory=str)
+    dependencies: Dict[str, Set[str]] = dataclasses.field(default_factory=dict)
+    mappings: Dict[str, List[MetaVariable]] = dataclasses.field(default_factory=dict)
 
-    @property
-    def _saturation(self):
-        return (self._id, MetricType.SATURATION)
-
-    @property
-    def _latency(self):
-        return (self._id, MetricType.LATENCY)
-
-    @property
-    def _error(self):
-        return (self._id, MetricType.ERROR)
+    def __init__(self, component: dict, types: set):
+        self.name = component["name"]
+        dependencies: dict = component.get("dependencies", {})
+        self.dependencies = {
+            caller: set(callees) for caller, callees in dependencies.items()
+        }
+        mappings: dict = component.get("mappings", {})
+        self.mappings = self.parse_mappings(mappings, types)
 
     @staticmethod
-    def create_components(root: str, filename: str) -> List["Component"]:
+    def parse_mappings(
+        mappings: Dict[str, List[dict]], types: set
+    ) -> Dict[str, List[MetaVariable]]:
         """
-        Create components listed in the given file
+        Check whether a meta variable is valid
         """
-        filename_list = os.path.join(root, filename)
-        components: List[Component] = []
-        if os.path.isfile(filename_list):
-            for (sub_component,) in load_csv(filename_list):
-                subdir = os.path.join(root, sub_component)
-                if os.path.isdir(subdir):
-                    components.append(Component(subdir, sub_component))
-        return components
+        invalid_meta_variables = []
+        ret: dict = {}
+        for variable, meta_variables in mappings.items():
+            mapped_meta_variables = []
+            for meta_variable in meta_variables:
+                mv_type = meta_variable.get("type", None)
+                if mv_type not in types or "component" not in meta_variable:
+                    invalid_meta_variables.append(meta_variable)
+                    continue
+                mapped_meta_variables.append(
+                    MetaVariable(type=mv_type, component=meta_variable["component"])
+                )
+            ret[variable] = mapped_meta_variables
 
-    @property
-    def name(self) -> str:
-        """
-        Component name
-        """
-        return self._name
+        if invalid_meta_variables:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "There are unknown meta variables in the metric mapping: %s",
+                invalid_meta_variables,
+            )
+        return ret
 
-    @property
-    def sequential(self) -> List["Component"]:
-        """
-        Sequential components
-        """
-        return self._sequential
 
-    @property
-    def parallel(self) -> List["Component"]:
+@dataclasses.dataclass
+class Config:
+    """
+    Config includes the following information to construct the structural graph
+    - causal assumptions,
+    - the component call graph, and
+    - the mapping between variables and meta variables
+    """
+
+    types: Set[str] = dataclasses.field(default_factory=set)
+
+    assumed_graph: Dict[str, Set[str]] = dataclasses.field(default_factory=dict)
+    assumed_parents: Dict[str, Set[str]] = dataclasses.field(default_factory=dict)
+    assumed_children: Dict[str, Set[str]] = dataclasses.field(default_factory=dict)
+    assumed_ancestors: Dict[str, Set[str]] = dataclasses.field(default_factory=dict)
+    assumed_descendents: Dict[str, Set[str]] = dataclasses.field(default_factory=dict)
+
+    components: List[ComponentConfig] = dataclasses.field(default_factory=list)
+
+    def __init__(self, filename: str):
+        config = YamlComposeLoader.load(filename)
+        self.types = set(config.get("types", []))
+        assumptions: dict = config.get("assumptions", {})
+        for item in ["graph", "parents", "children", "ancestors", "descendents"]:
+            setattr(
+                self,
+                f"assumed_{item}",
+                self.parse_assumptions(assumptions.get(item, {}), self.types),
+            )
+        components: list = config.get("components", [])
+        self.components = [
+            ComponentConfig(component, self.types) for component in components
+        ]
+
+    @staticmethod
+    def parse_assumptions(assumptions: dict, types: set) -> Dict[str, set]:
         """
-        Parallel components
+        A set of assumptions is a mapping from one meta variable type to its effects
         """
-        return self._parallel
+        logger = logging.getLogger(__name__)
+        extra_causes = []
+        extra_effects = {}
+        ret = {mv_type: set() for mv_type in types}
+        for cause, effects in assumptions.items():
+            if cause not in types:
+                extra_causes.append(cause)
+                continue
+            effects = set(effects)
+            extra = effects - types
+            if extra:
+                extra_effects[cause] = extra
+            ret[cause] = effects & types
 
-    def __repr__(self) -> str:
-        return f"Component(name='{self.name}')"
+        if extra_causes:
+            logger.warning(
+                "There are causes with unknown meta variables types"
+                " in the assumptions: %s",
+                extra_causes,
+            )
+        if extra_effects:
+            logger.warning(
+                "There are effects with unknown meta variables types"
+                " in the assumptions: %s",
+                extra_effects,
+            )
+        return ret
 
-    def list_metrics(self) -> List[str]:
+    def call_graph(self) -> nx.DiGraph:
         """
-        List metrics, including those of sub-components
+        Summary the dependencies of all components as the call graph
         """
-        metrics: List[str] = []
-        for kind in MetricType:
-            metrics += list(self._metrics[kind])
-        for component in chain(self._sequential, self._parallel):
-            metrics += component.list_metrics()
-        return metrics
-
-    def metrics(self, metric_type: MetricType, mask: Set[str] = None) -> Set[str]:
-        """
-        Fetch metrics
-        """
-        if mask is None:
-            return self._metrics[metric_type]
-        return self._metrics[metric_type] & mask
-
-    def visit(
-        self,
-        graph: nx.DiGraph,
-        components: Dict[int, "Component"],
-        library: Dict[str, "Component"],
-    ) -> Tuple[nx.DiGraph, Dict[int, "Component"]]:
-        """
-        Visit sub-components and record relations among MetricType
-        """
-        components[self._id] = self
-
-        lib_component = library.get(self.name, None)
-        if lib_component and self != lib_component:
-            lib_id = lib_component.identity
-            graph.add_edge(self._traffic, (lib_id, MetricType.TRAFFIC))
-            graph.add_edge((lib_id, MetricType.LATENCY), self._latency)
-            graph.add_edge((lib_id, MetricType.ERROR), self._error)
-            return lib_component.visit(graph, components, library)
-
-        # 1. Inter components
-        for component in chain(self._parallel, self._sequential):
-            graph.add_edge(self._traffic, (component.identity, MetricType.TRAFFIC))
-            graph.add_edge((component.identity, MetricType.LATENCY), self._latency)
-            graph.add_edge((component.identity, MetricType.ERROR), self._error)
-            graph, components = component.visit(graph, components, library)
-
-        # 1.1 Inter sequential components
-        # WARNING: This part will introduce cycles
-        # if self._sequential:
-        #     pre_id = self._sequential[0].identity
-        #     for component in self._sequential[1:]:
-        #         next_id = component.identity
-        #         graph.add_edge(
-        #             (pre_id, MetricType.ERROR), (next_id, MetricType.TRAFFIC)
-        #         )
-        #         pre_id = next_id
-
-        # 2. Intra component
-        default = {
-            self._traffic: {self._saturation, self._latency, self._error},
-            self._saturation: {self._latency, self._error},
-            self._latency: {self._error},
-            # self._error: set(),
-        }
-        for parent, children in default.items():
-            for child in children:
-                graph.add_edge(parent, child)
-
-        return graph, components
+        graph = nx.DiGraph()
+        for component in self.components:
+            graph.add_node(component.name)
+            for caller, callees in component.dependencies.items():
+                graph.add_edges_from(product([caller], callees))
+        return graph
 
 
 class StructuralGraph:
     """
-    Graph derived from architecture
+    Structural graph derived from architecture
     """
 
-    def __init__(self, root: str, name: str):
-        self._name = name
-        self._root = Component(root, name)
-        metrics = self._root.list_metrics()
-
-        self._components = {
-            component.name: component
-            for component in chain(self._root.sequential, self._root.parallel)
-        }
-
-        for filename in os.listdir(root):
-            subdir = os.path.join(root, filename)
-            if filename not in self._components and os.path.isdir(subdir):
-                component = Component(subdir, filename)
-                self._components[filename] = component
-                metrics += component.list_metrics()
-
-        self._metrics = Counter(metrics)
-
-    def visit(self, mask: Set[str] = None) -> nx.DiGraph:
+    def __init__(self, filename: str = None, config: Config = None):
         """
-        Generate the graph among metrics
+        config: The necessary information to construct the structural graph
+        filename: Mandatory if config is missing
         """
-        skeleton, components = self._root.visit(
-            graph=nx.DiGraph(), components={}, library=self._components
-        )
+        if config is None:
+            config = Config(filename)
+        self._config = config
+        self._skeleton = self.create_skeleton(config)
 
-        metric_counter = {
-            metric: count
-            for metric, count in self._metrics.items()
-            if mask is None or metric in mask
-        }
-        metric_node: Dict[str, Set[Tuple[int, MetricType]]] = {
-            metric: set() for metric in metric_counter
-        }
-        node_metrics: Dict[Tuple[int, MetricType], Set[str]] = {}
-        graph = nx.DiGraph()
-        for node in nx.topological_sort(skeleton):
-            component_id, metric_type = node
-            component = components[component_id]
-            parent_metric: Set[str] = set()
-            node_metric: Set[str] = set()
+    @staticmethod
+    def create_skeleton(config: Config) -> nx.DiGraph:
+        """
+        Create skeleton among meta variables
+        """
+        # 1. Collect the call graph
+        call_graph = config.call_graph()
 
-            # 1. Gather metrics in a node
-            # 1.1 Handle metrics in multiple nodes
-            for metric in component.metrics(metric_type, mask):
-                if metric_counter[metric] > 1:
-                    metric_counter[metric] -= 1
-                    metric_node[metric].add(node)
-                elif self._metrics[metric] > 1:
-                    parent_metric.add(metric)
-                    graph.add_edges_from(
-                        product(
-                            chain(
-                                *[node_metrics[node] for node in metric_node[metric]]
-                            ),
-                            {metric},
-                        )
+        skeleton = nx.DiGraph()
+        # 2. Instantiate meta variables
+        for mv_type in config.types:
+            for component in call_graph.nodes:
+                skeleton.add_node(MetaVariable(type=mv_type, component=component))
+
+        # 3. Add edges based on causal assumptions
+        for callee in call_graph.nodes:
+            # 3.1 Within a component
+            for cause_mv_type, effect_mv_types in config.assumed_graph.items():
+                for effect_mv_type in effect_mv_types:
+                    skeleton.add_edge(
+                        MetaVariable(type=cause_mv_type, component=callee),
+                        MetaVariable(type=effect_mv_type, component=callee),
                     )
-                else:
-                    node_metric.add(metric)
-
-            if metric_type in {MetricType.LATENCY, MetricType.ERROR}:
-                # 1.2 Gather metrics from reference children
-                for ch_component_id, ch_metric_type in skeleton.successors(node):
-                    ch_component = components[ch_component_id]
-                    if (
-                        ch_component.name == component.name
-                        and metric_type == ch_metric_type
-                    ):
-                        # The child is a reference of component
-                        assert list(
-                            skeleton.predecessors((ch_component_id, ch_metric_type))
-                        ) == [node]
-                        node_metric.update(ch_component.metrics(metric_type, mask))
-
-            # 2. Gather metrics of parents
-            parents: List[Tuple[int, MetricType]] = list(skeleton.predecessors(node))
-
-            for pa_component_id, pa_metric_type in parents:
-                parent = components[pa_component_id]
-                is_reference = (
-                    parent.name == component.name and pa_metric_type == metric_type
-                )
-                if (
-                    is_reference
-                    and metric_type == MetricType.TRAFFIC
-                    and parent.metrics(metric_type, mask)
-                ):
-                    # 2.1 Gather metrics from refered parents
-                    assert list(
-                        skeleton.successors((pa_component_id, pa_metric_type))
-                    ) == [node]
-                    node_metric.update(parent.metrics(metric_type, mask))
-                elif is_reference and metric_type in {
-                    MetricType.LATENCY,
-                    MetricType.ERROR,
-                }:
-                    # 2.2 Override metrics of the only refered parent
-                    assert len(parents) == 1
-                    if not node_metric:
-                        node_metric.update(
-                            node_metrics[(pa_component_id, pa_metric_type)]
+            for callee_mv_type in config.types:
+                # 3.2 For one-hop relations
+                for caller in call_graph.predecessors(callee):
+                    for caller_mv_type in config.assumed_parents[callee_mv_type]:
+                        skeleton.add_edge(
+                            MetaVariable(type=caller_mv_type, component=caller),
+                            MetaVariable(type=callee_mv_type, component=callee),
                         )
-                else:
-                    parent_metric |= node_metrics[(pa_component_id, pa_metric_type)]
-
-            # 3. Link
-            graph.add_edges_from(product(parent_metric, node_metric))
-
-            # 4. Bypass ERROR
-            if metric_type == MetricType.ERROR:
-                for pa_component_id, pa_metric_type in parents:
-                    if pa_metric_type == metric_type:
-                        node_metric.update(
-                            node_metrics[(pa_component_id, pa_metric_type)]
+                    for caller_mv_type in config.assumed_children[callee_mv_type]:
+                        skeleton.add_edge(
+                            MetaVariable(type=callee_mv_type, component=callee),
+                            MetaVariable(type=caller_mv_type, component=caller),
+                        )
+                # 3.3 For multi-hop relations
+                for caller in nx.ancestors(call_graph, callee):
+                    for caller_mv_type in config.assumed_ancestors[callee_mv_type]:
+                        skeleton.add_edge(
+                            MetaVariable(type=caller_mv_type, component=caller),
+                            MetaVariable(type=callee_mv_type, component=callee),
+                        )
+                    for caller_mv_type in config.assumed_descendents[callee_mv_type]:
+                        skeleton.add_edge(
+                            MetaVariable(type=callee_mv_type, component=callee),
+                            MetaVariable(type=caller_mv_type, component=caller),
                         )
 
-            node_metrics[node] = node_metric if node_metric else parent_metric
+        return skeleton
+
+    def _map_variable_meta(self, mask: Dict[str, Set[str]] = None):
+        if mask is None:
+            mask = {}
+
+        variable2meta: Dict[Node, List[MetaVariable]] = {}
+        meta2variable: Dict[MetaVariable, List[Node]] = {
+            meta_variable: [] for meta_variable in self._skeleton.nodes
+        }
+        for component in self._config.components:
+            for variable_name, meta_variables in component.mappings.items():
+                variable = Node(entity=component.name, metric=variable_name)
+                if component.name not in mask or variable_name in mask[component.name]:
+                    variable2meta[variable] = meta_variables
+                    for meta_variable in meta_variables:
+                        meta2variable[meta_variable].append(variable)
+        return variable2meta, meta2variable
+
+    def visit(self, mask: Dict[str, Set[str]] = None) -> nx.DiGraph:
+        """
+        Generate the graph among the (component, variable) tuples
+        """
+        # 1. Set up mappings between variables and meta variables with the mask
+        variable2meta, meta2variable = self._map_variable_meta(mask)
+
+        graph = nx.DiGraph()
+        visible_variables: Dict[MetaVariable, Set[Node]] = {
+            meta_variable: set() for meta_variable in meta2variable
+        }
+        counter = {
+            variable: len(meta_variables)
+            for variable, meta_variables in variable2meta.items()
+        }
+        variable2visited: Dict[Node, Set[MetaVariable]] = {
+            variable: set() for variable in counter
+        }
+        # 2. Iterate over meta variables in the topological order
+        meta_variables: List[Set[MetaVariable]] = topological_sort(
+            nodes=self._skeleton.nodes,
+            predecessors=self._skeleton.predecessors,
+            successors=self._skeleton.successors,
+        )
+        for meta_variable in chain(*meta_variables):
+            current: Set[Node] = set()
+            parents: Set[Node] = set()
+
+            # 2.1 Handle multi-mapping variables
+            for variable in meta2variable[meta_variable]:
+                if counter[variable] == 1:
+                    current.add(variable)
+                elif len(variable2visited[variable]) == counter[variable] - 1:
+                    # This is the last time to vist this variable
+                    parents.add(variable)
+                    for visited_mv in variable2visited[variable]:
+                        graph.add_edges_from(
+                            product(visible_variables[visited_mv], [variable])
+                        )
+                else:
+                    # Skip to avoid self-loop
+                    variable2visited[variable].add(meta_variable)
+
+            # 2.2 Collect parents
+            for cause_meta_variable in self._skeleton.predecessors(meta_variable):
+                parents |= visible_variables[cause_meta_variable]
+
+            # 2.3 Link from parents to current
+            graph.add_edges_from(product(parents, current))
+
+            # 2.4 Set visible variables for the following meta variables
+            visible_variables[meta_variable] = current if current else parents
 
         return graph
 
 
-class StructrualGraphFactory(GraphFactory):
+class StructuralGraphFactory(GraphFactory):
     """
     Create Graph instances based on StructuralGraph
     """
 
-    def __init__(self, structural_graph: StructuralGraph, entity: str = "DB", **kwargs):
+    def __init__(self, structural_graph: StructuralGraph, **kwargs):
         super().__init__(**kwargs)
         self._structural_graph = structural_graph
-        self._entity = entity
 
     def create(self, data: CaseData, current: float) -> Graph:
         graph = self._structural_graph.visit(
-            set(data.data_loader.metrics[self._entity])
+            {
+                entity: set(metric_names)
+                for entity, metric_names in data.data_loader.metrics.items()
+            }
         )
-        return MemoryGraph(
-            nx.DiGraph(
-                {
-                    Node(self._entity, reason): [
-                        Node(self._entity, result)
-                        for result in graph.successors(reason)
-                    ]
-                    for reason in graph.nodes
-                }
-            )
-        )
+        return MemoryGraph(graph)

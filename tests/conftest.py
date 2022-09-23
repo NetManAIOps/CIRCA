@@ -31,17 +31,24 @@ def tempdir() -> str:
 
 
 @pytest.fixture
-def case_data(data_loader: DataLoader) -> CaseData:
+def case_data_params() -> dict:
     """
-    Create a CaseData for test
+    Parameters for a CaseData with the mock_data
     """
-    return CaseData(
-        data_loader=data_loader,
+    return dict(
         sli=Node("DB", "Latency"),
         detect_time=240,
         lookup_window=4,
         detect_window=2,
     )
+
+
+@pytest.fixture
+def case_data(data_loader: DataLoader, case_data_params: dict) -> CaseData:
+    """
+    Create a CaseData for test
+    """
+    return CaseData(data_loader=data_loader, **case_data_params)
 
 
 @pytest.fixture

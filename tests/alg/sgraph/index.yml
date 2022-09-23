@@ -1,0 +1,38 @@
+types:
+- T  # Traffic
+- S  # Saturation
+- L  # Latency
+- E  # Errors
+assumptions:
+  graph:
+    # graph is a mapping from one meta variable type to its effects
+    T:
+    - S
+    - L
+    - E
+    S:
+    - L
+    - E
+    L:
+    - E
+  parents:
+    # parents is a mapping from one meta variable type to its causes from the callees
+    T:
+    - T
+  children:
+    # children is a mapping from one meta variable type to its effects for the callers
+    L:
+    - L
+    E:
+    - E
+  descendents:
+    # descendents is a mapping from one meta variable type to its effects
+    # for the callers, the callers of the callers, and so on
+    E:
+    - E
+  ancestors: {}
+    # ancestors is a mapping from one meta variable type to its causes
+    # from the callers, the callers of the callers, and so on
+components:
+  - !include web.yml
+  - !include db.yml

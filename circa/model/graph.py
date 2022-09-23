@@ -11,6 +11,7 @@ import networkx as nx
 
 from ..utils import dump_json
 from ..utils import load_json
+from ..utils import topological_sort
 
 
 class Node:
@@ -105,24 +106,11 @@ class Graph(ABC):
 
         The graph specifies the parents of each node.
         """
-        if self._sorted_nodes:
-            return self._sorted_nodes
-
-        degrees = {node: len(self.parents(node)) for node in self.nodes}
-
-        nodes: List[Set[Node]] = []
-        while degrees:
-            minimum = min(degrees.values())
-            node_set = {node for node, degree in degrees.items() if degree == minimum}
-            nodes.append(node_set)
-            for node in node_set:
-                degrees.pop(node)
-                for child in self.children(node):
-                    if child in degrees:
-                        degrees[child] -= 1
-
-        self._sorted_nodes = nodes
-        return nodes
+        if self._sorted_nodes is None:
+            self._sorted_nodes = topological_sort(
+                nodes=self.nodes, predecessors=self.parents, successors=self.children
+            )
+        return self._sorted_nodes
 
     def children(self, node: Node, **kwargs) -> Set[Node]:
         """

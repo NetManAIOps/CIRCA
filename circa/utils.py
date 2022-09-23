@@ -3,13 +3,21 @@ Utilities
 """
 import csv
 import datetime
+from itertools import chain
 import json
 import logging
+import os
 import signal
 from typing import Callable
+from typing import Iterator
+from typing import List
 from typing import Sequence
+from typing import Set
 from typing import TypeVar
 import warnings
+
+import networkx as nx
+import yaml
 
 
 try:
@@ -167,3 +175,55 @@ def load_json(filename: str):
     """
     with open(filename, encoding=ENCODING) as obj:
         return json.load(obj)
+
+
+class YamlComposeLoader(yaml.SafeLoader):
+    # pylint: disable=too-many-ancestors
+    """
+    Equip yaml.SafeLoader with the "!include" tag
+    """
+
+    @classmethod
+    def load(cls, filename: str) -> dict:
+        """
+        Load from file
+        """
+        with open(filename, encoding=ENCODING) as obj:
+            return yaml.load(obj, cls)
+
+    @staticmethod
+    def include(loader: yaml.Loader, node: yaml.Node):
+        """
+        Handle the "!include" tag
+        """
+        filename = os.path.join(
+            os.path.dirname(loader.name), loader.construct_scalar(node)
+        )
+        return YamlComposeLoader.load(filename)
+
+
+YamlComposeLoader.add_constructor("!include", YamlComposeLoader.include)
+
+
+def topological_sort(
+    nodes: Set[_Template],
+    predecessors: Callable[[_Template], Iterator[_Template]],
+    successors: Callable[[_Template], Iterator[_Template]],
+) -> List[Set[_Template]]:
+    """
+    Sort nodes with predecessors first
+    """
+    graph = {node: set(successors(node)) for node in nodes}
+    components = list(nx.strongly_connected_components(nx.DiGraph(graph)))
+    node2component = {
+        node: index for index, component in enumerate(components) for node in component
+    }
+    super_graph = {
+        index: {node2component[child] for node in component for child in graph[node]}
+        - {index}
+        for index, component in enumerate(components)
+    }
+    return [
+        set(chain(*[components[index] for index in layer]))
+        for layer in nx.topological_generations(nx.DiGraph(super_graph))
+    ]

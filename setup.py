@@ -14,7 +14,7 @@ with open(
 
 setuptools.setup(
     name="circa-clue",
-    version="0.0.2",
+    version="0.1.0",
     author="limjcst",
     author_email="limjcst@163.com",
     description="Causal Inference-based Root Cause Analysis",

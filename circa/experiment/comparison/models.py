@@ -32,7 +32,7 @@ from ...graph import GraphFactory
 from ...graph.common import EmptyGraphFactory
 from ...graph.pcts import PCTSFactory
 from ...graph.r import PCAlgFactory
-from ...graph.structural import StructrualGraphFactory
+from ...graph.structural import StructuralGraphFactory
 
 
 EMPTY_GRAPH_NAME = "Empty"
@@ -139,7 +139,7 @@ def _get_graph_factories(
         ):
             graph_factories["PCTS" + suffix] = PCTSFactory(seed=seed, **params)
     if graph_params.structural and structural_graph_params is not None:
-        graph_factories["Structural"] = StructrualGraphFactory(
+        graph_factories["Structural"] = StructuralGraphFactory(
             **structural_graph_params, seed=seed
         )
 

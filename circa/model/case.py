@@ -6,12 +6,15 @@ from typing import Dict
 from typing import Sequence
 from typing import Set
 
+import numpy as np
+
 from .data_loader import DataLoader
 from .graph import Graph
 from .graph import Node
 
 
 class CaseData:
+    # pylint: disable=too-many-instance-attributes
     """
     Case data that algorithms can access
     """
@@ -24,6 +27,7 @@ class CaseData:
         interval: datetime.timedelta = datetime.timedelta(minutes=1),
         lookup_window: int = 120,
         detect_window: int = 10,
+        prune: bool = True,
     ):
         # pylint: disable=too-many-arguments
         self._data_loader = data_loader
@@ -35,6 +39,7 @@ class CaseData:
         self._train_window = lookup_window - detect_window + 1
         self._test_window = detect_window
         self._lookup_window = lookup_window * interval.total_seconds()
+        self._prune = prune
 
     @property
     def data_loader(self) -> DataLoader:
@@ -84,6 +89,7 @@ class CaseData:
         nodes = self._data_loader.nodes if graph is None else graph.nodes
 
         start = self._detect_time - self._lookup_window
+        length = int((current - start) / self._interval.total_seconds()) + 1
         series: Dict[Node, Sequence[float]] = {}
         for node in nodes:
             node_data = self._data_loader.load(
@@ -93,8 +99,13 @@ class CaseData:
                 end=current,
                 interval=self._interval,
             )
-            if node_data and len(set(node_data)) > 1:
-                series[node] = node_data
+            if self._prune:
+                if node_data and len(set(node_data)) > 1:
+                    series[node] = node_data[:length]
+            else:
+                if not node_data:
+                    node_data = np.zeros(length)
+                series[node] = node_data[:length]
         return series
 
 
