@@ -3,6 +3,7 @@ Utilities
 """
 import csv
 import datetime
+from itertools import chain
 import json
 import logging
 import os
@@ -15,6 +16,7 @@ from typing import Set
 from typing import TypeVar
 import warnings
 
+import networkx as nx
 import yaml
 
 
@@ -211,16 +213,17 @@ def topological_sort(
     """
     Sort nodes with predecessors first
     """
-    degrees = {node: len(set(predecessors(node))) for node in nodes}
-
-    nodes: List[set] = []
-    while degrees:
-        minimum = min(degrees.values())
-        node_set = {node for node, degree in degrees.items() if degree == minimum}
-        nodes.append(node_set)
-        for node in node_set:
-            degrees.pop(node)
-            for successor in successors(node):
-                if successor in degrees:
-                    degrees[successor] -= 1
-    return nodes
+    graph = {node: set(successors(node)) for node in nodes}
+    components = list(nx.strongly_connected_components(nx.DiGraph(graph)))
+    node2component = {
+        node: index for index, component in enumerate(components) for node in component
+    }
+    super_graph = {
+        index: {node2component[child] for node in component for child in graph[node]}
+        - {index}
+        for index, component in enumerate(components)
+    }
+    return [
+        set(chain(*[components[index] for index in layer]))
+        for layer in nx.topological_generations(nx.DiGraph(super_graph))
+    ]

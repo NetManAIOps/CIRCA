@@ -3,9 +3,12 @@ Test suites for utilities
 """
 import time
 
+import networkx as nx
+
 import pytest
 
 from circa.utils import Timeout
+from circa.utils import topological_sort
 
 
 def test_timeout():
@@ -26,3 +29,26 @@ def test_timeout():
         time.sleep(0.5)
         value = new_value
     assert value == new_value
+
+
+def test_topological_sort():
+    """
+    topological_sort shall handle loops
+    """
+    graph = nx.DiGraph()
+    graph.add_edges_from(
+        [
+            (1, 2),
+            (1, 3),
+            (2, 1),
+            (2, 3),
+            (3, 1),
+            (3, 2),
+            (3, 4),
+        ]
+    )
+    assert topological_sort(
+        nodes=set(graph.nodes),
+        predecessors=graph.predecessors,
+        successors=graph.successors,
+    ) == [{1, 2, 3}, {4}]
