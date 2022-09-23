@@ -305,7 +305,7 @@ class StructuralGraph:
         return graph
 
 
-class StructrualGraphFactory(GraphFactory):
+class StructuralGraphFactory(GraphFactory):
     """
     Create Graph instances based on StructuralGraph
     """
