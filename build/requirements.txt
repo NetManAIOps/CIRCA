@@ -10,5 +10,5 @@ PyYAML
 rpy2
 scipy
 scikit-learn
-tigramite < 5
+tigramite
 torch

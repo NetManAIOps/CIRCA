@@ -14,7 +14,7 @@ with open(
 
 setuptools.setup(
     name="circa-clue",
-    version="0.1.0",
+    version="0.1.1",
     author="limjcst",
     author_email="limjcst@163.com",
     description="Causal Inference-based Root Cause Analysis",
@@ -27,7 +27,7 @@ setuptools.setup(
     },
     install_requires=install_requires,
     classifiers=[
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Operating System :: OS Independent",
         "License :: OSI Approved :: BSD License",
     ],
