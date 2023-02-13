@@ -1,7 +1,7 @@
 ads-evt
 bayesian-changepoint-detection
 dataclasses
-grpcio < 1.50.0
+grpcio
 networkx
 numpy
 pandas

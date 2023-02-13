@@ -26,9 +26,9 @@ RUN pip3 install --upgrade pip
 WORKDIR /app
 
 # installing python libraries
-RUN pip3 install --no-cache-dir rpy2
+RUN pip3 install --no-cache-dir --prefer-binary rpy2
 COPY build/requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir --prefer-binary -r requirements.txt
 
 # installing R libraries
 COPY build/requirements.R .

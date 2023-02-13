@@ -17,20 +17,24 @@ get_os <- function() {
 }
 os <- get_os()
 
-# pcalg
-install.packages("BiocManager")
-# igraph is required by ggm
-if (os == "osx") {
-    install.packages("igraph", type = "mac.binary")
-} else if (os == "windows") {
-    install.packages("igraph", type = "win.binary")
-} else {
-    install.packages("igraph")
+install_packages <- function(pkgs, ...) {
+  if (os == "osx") {
+      install.packages(pkgs, type = "mac.binary", ...)
+  } else if (os == "windows") {
+      install.packages(pkgs, type = "win.binary", ...)
+  } else {
+      install.packages(pkgs, ...)
+  }
 }
+
+# pcalg
+install_packages("BiocManager")
+# igraph is required by ggm
+install_packages("igraph")
 library(igraph)
 BiocManager::install(c("graph", "RBGL", "ggm"), ask = FALSE)
-install.packages("pcalg")
+install_packages("pcalg")
 # test installation
 library(pcalg)
 
-install.packages(c("ggplot2", "xtable"))
+install_packages(c("ggplot2", "xtable"))
